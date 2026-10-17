@@ -1,0 +1,82 @@
+import crypto from 'node:crypto';
+import { env } from '../../../config/env.js';
+import {
+  PaymentGatewayAdapter,
+  CreateOrderOptions,
+  OrderResult,
+  RefundOptions,
+} from './payment-gateway.interface.js';
+
+export class RazorpayAdapter implements PaymentGatewayAdapter {
+  private keyId: string;
+  private keySecret: string;
+  private webhookSecret: string;
+
+  constructor() {
+    this.keyId = env.RAZORPAY_KEY_ID;
+    this.keySecret = env.RAZORPAY_KEY_SECRET;
+    this.webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
+  }
+
+  async createOrder(options: CreateOrderOptions): Promise<OrderResult> {
+    const authHeader = Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64');
+    const orderPayload = {
+      amount: options.amountPaisa,
+      currency: options.currency,
+      receipt: options.bookingNumber,
+      notes: {
+        bookingId: options.bookingId,
+        customerPhone: options.customerPhone,
+      },
+    };
+
+    if (env.NODE_ENV === 'production') {
+      const response = await fetch('https://api.razorpay.com/v1/orders', {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${authHeader}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderPayload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Razorpay order creation failed: ${errorText}`);
+      }
+
+      const data = (await response.json()) as any;
+      return {
+        gateway: 'RAZORPAY',
+        gatewayOrderId: data.id,
+        amountPaisa: data.amount,
+        currency: data.currency,
+      };
+    }
+
+    return {
+      gateway: 'RAZORPAY',
+      gatewayOrderId: `rzp_order_${Date.now()}`,
+      amountPaisa: options.amountPaisa,
+      currency: options.currency,
+    };
+  }
+
+  verifyWebhookSignature(rawBody: string, signature: string): boolean {
+    const expectedSignature = crypto
+      .createHmac('sha256', this.webhookSecret)
+      .update(rawBody)
+      .digest('hex');
+
+    return crypto.timingSafeEqual(
+      Buffer.from(expectedSignature),
+      Buffer.from(signature)
+    );
+  }
+
+  async processRefund(_options: RefundOptions): Promise<{ gatewayRefundId: string }> {
+    return {
+      gatewayRefundId: `rfnd_rzp_${Date.now()}`,
+    };
+  }
+}

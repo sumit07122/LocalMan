@@ -1,0 +1,64 @@
+name: localman_provider
+description: "LocalMan Professional/Partner Mobile Application for Android and iOS"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management & DI
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Networking & Serialization
+  dio: ^5.4.3+1
+  json_annotation: ^4.9.0
+  freezed_annotation: ^2.4.1
+
+  # Local Persistence & Secure Storage
+  flutter_secure_storage: ^9.0.0
+  shared_preferences: ^2.2.3
+
+  # Routing
+  go_router: ^14.0.0
+
+  # Camera & Document Scanner for KYC
+  image_picker: ^1.1.0
+
+  # UI Kit & Icons
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.10+1
+  intl: ^0.19.0
+  cached_network_image: ^3.3.1
+
+  # Maps & Background Location Beacons
+  google_maps_flutter: ^2.6.0
+  geolocator: ^11.0.0
+
+  # Push Notifications & Audio alerts for job requests
+  firebase_core: ^2.30.1
+  firebase_messaging: ^14.8.5
+  flutter_local_notifications: ^17.1.1
+  audioplayers: ^6.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  build_runner: ^2.4.9
+  riverpod_generator: ^2.4.0
+  freezed: ^2.5.2
+  json_serializable: ^6.8.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/sounds/
