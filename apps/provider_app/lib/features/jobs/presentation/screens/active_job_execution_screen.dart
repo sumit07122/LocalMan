@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class ActiveJobExecutionScreen extends StatefulWidget {
-  const ActiveJobExecutionScreen({super.key});
+  final String bookingId;
+
+  const ActiveJobExecutionScreen({
+    super.key,
+    this.bookingId = 'LM-20261017-X82A',
+  });
 
   @override
   State<ActiveJobExecutionScreen> createState() => _ActiveJobExecutionScreenState();
 }
 
 class _ActiveJobExecutionScreenState extends State<ActiveJobExecutionScreen> {
-  String _jobState = 'ARRIVED'; // 'ON_THE_WAY', 'ARRIVED', 'JOB_STARTED', 'JOB_COMPLETED'
+  String _jobState = 'ARRIVED'; // 'PROVIDER_ON_THE_WAY', 'ARRIVED', 'JOB_STARTED', 'JOB_COMPLETED'
   final _otpController = TextEditingController();
   final List<Map<String, dynamic>> _addedMaterials = [];
+  double _baseLabor = 499.0;
+  final double _platformCommissionPercent = 0.15;
 
   void _verifyStartOtp() {
     showDialog(
@@ -52,7 +60,7 @@ class _ActiveJobExecutionScreenState extends State<ActiveJobExecutionScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('✅ OTP Verified successfully! Job timer started.'),
-                  backgroundColor: Colors.green,
+                  backgroundColor: Color(0xFF10B981),
                 ),
               );
             },
@@ -100,7 +108,7 @@ class _ActiveJobExecutionScreenState extends State<ActiveJobExecutionScreen> {
                 });
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Material added for customer approval.')),
+                  const SnackBar(content: Text('Material added to customer invoice.')),
                 );
               }
             },
@@ -111,15 +119,34 @@ class _ActiveJobExecutionScreenState extends State<ActiveJobExecutionScreen> {
     );
   }
 
+  double get _totalMaterials => _addedMaterials.fold(0.0, (acc, item) => acc + (item['price'] as double));
+  double get _totalBill => _baseLabor + _totalMaterials;
+  double get _partnerPayout => (_baseLabor * (1 - _platformCommissionPercent)) + _totalMaterials;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Active Job • LM-20261017-X82A'),
+        title: Text('Active Job • ${widget.bookingId}'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/');
+            }
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.call, color: Color(0xFF0D9488)),
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Calling customer: +91 9820011223')),
+              );
+            },
           ),
         ],
       ),
@@ -134,17 +161,25 @@ class _ActiveJobExecutionScreenState extends State<ActiveJobExecutionScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: _jobState == 'JOB_STARTED' ? Colors.green.shade50 : const Color(0xFFFEF3C7),
+                  color: _jobState == 'JOB_STARTED'
+                      ? const Color(0xFFECFDF5)
+                      : (_jobState == 'JOB_COMPLETED' ? const Color(0xFFF0FDF4) : const Color(0xFFFEF3C7)),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: _jobState == 'JOB_STARTED' ? Colors.green.shade300 : const Color(0xFFF59E0B),
+                    color: _jobState == 'JOB_STARTED'
+                        ? const Color(0xFF10B981)
+                        : (_jobState == 'JOB_COMPLETED' ? Colors.green : const Color(0xFFF59E0B)),
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      _jobState == 'JOB_STARTED' ? Icons.timer : Icons.lock_clock,
-                      color: _jobState == 'JOB_STARTED' ? Colors.green.shade800 : const Color(0xFFB45309),
+                      _jobState == 'JOB_STARTED'
+                          ? Icons.timer
+                          : (_jobState == 'JOB_COMPLETED' ? Icons.check_circle : Icons.location_on),
+                      color: _jobState == 'JOB_STARTED'
+                          ? const Color(0xFF047857)
+                          : (_jobState == 'JOB_COMPLETED' ? Colors.green : const Color(0xFFB45309)),
                       size: 28,
                     ),
                     const SizedBox(width: 12),
@@ -153,21 +188,29 @@ class _ActiveJobExecutionScreenState extends State<ActiveJobExecutionScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _jobState == 'JOB_STARTED' ? 'JOB IN PROGRESS' : 'ARRIVED AT CUSTOMER ADDRESS',
+                            _jobState == 'JOB_STARTED'
+                                ? 'JOB IN PROGRESS'
+                                : (_jobState == 'JOB_COMPLETED' ? 'JOB COMPLETED' : 'ARRIVED AT CUSTOMER ADDRESS'),
                             style: TextStyle(
                               fontWeight: FontWeight.w800,
                               fontSize: 13,
-                              color: _jobState == 'JOB_STARTED' ? Colors.green.shade900 : const Color(0xFF92400E),
+                              color: _jobState == 'JOB_STARTED'
+                                  ? const Color(0xFF065F46)
+                                  : (_jobState == 'JOB_COMPLETED' ? Colors.green.shade900 : const Color(0xFF92400E)),
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             _jobState == 'JOB_STARTED'
-                              ? 'Timer: 00:24:18 elapsed • AC Foam Jet Clean'
-                              : 'Verify Start OTP with customer before starting work',
+                                ? 'Timer: 00:24:18 elapsed • AC Foam Jet Clean'
+                                : (_jobState == 'JOB_COMPLETED'
+                                    ? 'Payment settled. Ready to accept next booking.'
+                                    : 'Verify Start OTP with customer before starting work'),
                             style: TextStyle(
                               fontSize: 12,
-                              color: _jobState == 'JOB_STARTED' ? Colors.green.shade800 : const Color(0xFFB45309),
+                              color: _jobState == 'JOB_STARTED'
+                                  ? const Color(0xFF047857)
+                                  : (_jobState == 'JOB_COMPLETED' ? Colors.green.shade800 : const Color(0xFFB45309)),
                             ),
                           ),
                         ],
@@ -185,12 +228,12 @@ class _ActiveJobExecutionScreenState extends State<ActiveJobExecutionScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Customer & Service Details', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                    const Text('Customer & Location', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                     const SizedBox(height: 10),
                     const Row(
                       children: [
@@ -214,11 +257,14 @@ class _ActiveJobExecutionScreenState extends State<ActiveJobExecutionScreen> {
                       ],
                     ),
                     const Divider(height: 20),
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Base Labor Payout:', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                        Text('₹424.15 (after 15% fee)', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                        const Text('Your Net Payout:', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        Text(
+                          '₹${_partnerPayout.toStringAsFixed(2)}',
+                          style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF0F172A), fontSize: 16),
+                        ),
                       ],
                     ),
                   ],
@@ -249,7 +295,7 @@ class _ActiveJobExecutionScreenState extends State<ActiveJobExecutionScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: const Center(
                     child: Text('No extra materials added yet.', style: TextStyle(color: Colors.grey, fontSize: 13)),
@@ -263,7 +309,7 @@ class _ActiveJobExecutionScreenState extends State<ActiveJobExecutionScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -302,13 +348,16 @@ class _ActiveJobExecutionScreenState extends State<ActiveJobExecutionScreen> {
                     onPressed: () {
                       setState(() => _jobState = 'JOB_COMPLETED');
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Job marked completed! Final invoice generated.')),
+                        const SnackBar(
+                          content: Text('Job marked completed! Payout credited to your wallet.'),
+                          backgroundColor: Color(0xFF10B981),
+                        ),
                       );
                     },
                     icon: const Icon(Icons.check_circle_outline),
                     label: const Text('Complete Job & Generate Invoice'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: const Color(0xFF10B981),
                       foregroundColor: Colors.white,
                       textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -316,16 +365,32 @@ class _ActiveJobExecutionScreenState extends State<ActiveJobExecutionScreen> {
                   ),
                 )
               else
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.green),
-                  ),
-                  child: const Center(
-                    child: Text('🎉 Job Completed Successfully! Payment is pending settlement.', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.green)),
-                  ),
+                Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF10B981)),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '🎉 Job Completed Successfully! ₹424.15 credited to your wallet.',
+                          style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF047857)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => context.go('/'),
+                        child: const Text('Back to Duty Dashboard'),
+                      ),
+                    ),
+                  ],
                 ),
             ],
           ),
