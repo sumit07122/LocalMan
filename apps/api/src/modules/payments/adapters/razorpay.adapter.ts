@@ -62,11 +62,36 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
     };
   }
 
+  verifyPaymentSignature(options: { gatewayOrderId: string; gatewayPaymentId: string; gatewaySignature: string }): boolean {
+    if (!options.gatewaySignature || !options.gatewayOrderId || !options.gatewayPaymentId) {
+      return false;
+    }
+    const text = `${options.gatewayOrderId}|${options.gatewayPaymentId}`;
+    const expectedSignature = crypto
+      .createHmac('sha256', this.keySecret)
+      .update(text)
+      .digest('hex');
+
+    if (Buffer.byteLength(options.gatewaySignature) !== Buffer.byteLength(expectedSignature)) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(
+      Buffer.from(expectedSignature),
+      Buffer.from(options.gatewaySignature)
+    );
+  }
+
   verifyWebhookSignature(rawBody: string, signature: string): boolean {
+    if (!signature) return false;
     const expectedSignature = crypto
       .createHmac('sha256', this.webhookSecret)
       .update(rawBody)
       .digest('hex');
+
+    if (Buffer.byteLength(expectedSignature) !== Buffer.byteLength(signature)) {
+      return false;
+    }
 
     return crypto.timingSafeEqual(
       Buffer.from(expectedSignature),

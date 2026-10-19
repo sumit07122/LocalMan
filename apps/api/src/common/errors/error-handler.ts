@@ -25,13 +25,14 @@ export function globalErrorHandler(
   }
 
   // 2. Zod Validation Errors
-  if (error instanceof ZodError) {
+  if (error instanceof ZodError || error.name === 'ZodError' || Array.isArray((error as any).issues)) {
+    const zodErr = error as ZodError;
     return reply.status(422).send({
       success: false,
       error: {
         code: 'VALIDATION_ERROR',
         message: 'Invalid request input parameters',
-        details: error.flatten().fieldErrors,
+        details: typeof zodErr.flatten === 'function' ? zodErr.flatten().fieldErrors : (error as any).issues,
       },
       meta: {
         timestamp: new Date().toISOString(),

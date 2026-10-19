@@ -1,6 +1,12 @@
 import { prisma } from '../../config/database.js';
-import { ReviewKycDocumentInput } from '@localman/contracts';
+import {
+  ReviewKycDocumentInput,
+  UpdatePayoutStatusInput,
+  AdminManualAdjustmentInput,
+  QueryLedgerInput,
+} from '@localman/contracts';
 import { NotFoundError } from '../../common/errors/app-error.js';
+import { financialService } from '../financial/financial.service.js';
 
 export class AdminService {
   /**
@@ -171,5 +177,60 @@ export class AdminService {
     ]);
 
     return { logs, total, page, limit };
+  }
+
+  /**
+   * Admin inspects provider wallet (Phase 2E)
+   */
+  async getProviderWallet(providerId: string) {
+    return financialService.getProviderWalletSummary(providerId);
+  }
+
+  /**
+   * Admin queries platform-wide financial ledger (Phase 2E)
+   */
+  async getFinancialLedger(query?: QueryLedgerInput) {
+    return financialService.getLedgerEntries(undefined, query);
+  }
+
+  /**
+   * Admin lists platform payouts with optional status filter (Phase 2E)
+   */
+  async getPayouts(status?: string, page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const where = status ? { status } : {};
+    const [payouts, total] = await Promise.all([
+      prisma.providerPayout.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          provider: {
+            select: { id: true, businessName: true, user: { select: { fullName: true, phoneNumber: true } } },
+          },
+          booking: {
+            select: { id: true, bookingNumber: true, totalAmountPaisa: true },
+          },
+        },
+      }),
+      prisma.providerPayout.count({ where }),
+    ]);
+
+    return { payouts, total, page, limit };
+  }
+
+  /**
+   * Admin updates payout status (PAID or FAILED) (Phase 2E)
+   */
+  async updatePayoutStatus(adminUserId: string, payoutId: string, input: UpdatePayoutStatusInput) {
+    return financialService.updatePayoutStatus(payoutId, input, adminUserId);
+  }
+
+  /**
+   * Admin executes audited manual balance adjustment (Phase 2E)
+   */
+  async adminManualAdjustment(adminUserId: string, input: AdminManualAdjustmentInput) {
+    return financialService.adminManualAdjustment(adminUserId, input);
   }
 }

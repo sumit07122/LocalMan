@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../../config/database.js';
 import { env } from '../../config/env.js';
@@ -160,9 +161,21 @@ export class AuthService {
     );
 
     const refreshToken = fastify.jwt.sign(
-      { userId: user.id, type: 'refresh' },
+      { userId: user.id, type: 'refresh', jti: randomUUID() },
       { expiresIn: env.REFRESH_TOKEN_EXPIRES_IN }
     );
+
+    // Persist hashed refresh token for rotation, revocation & replay protection
+    const tokenHash = hashString(refreshToken);
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+        isRevoked: false,
+      },
+    });
 
     const isProfileComplete = Boolean(user.fullName && user.fullName.trim().length > 0);
 
@@ -182,39 +195,106 @@ export class AuthService {
   }
 
   /**
-   * Refreshes access token using valid refresh token
+   * Refreshes access token with automatic refresh token rotation & replay detection
    */
-  async refreshToken(fastify: FastifyInstance, refreshToken: string) {
+  async refreshToken(fastify: FastifyInstance, submittedToken: string) {
+    let decoded: { userId: string; type: string } | null = null;
     try {
-      const decoded = fastify.jwt.verify<{ userId: string; type: string }>(refreshToken);
-      if (!decoded || decoded.type !== 'refresh' || !decoded.userId) {
-        throw new UnauthorizedError('Invalid refresh token');
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.userId },
-        include: { userRoles: true },
-      });
-
-      if (!user || !user.isActive) {
-        throw new UnauthorizedError('User account not found or suspended');
-      }
-
-      const newAccessToken = fastify.jwt.sign(
-        {
-          userId: user.id,
-          phoneNumber: user.phoneNumber,
-          roles: user.userRoles.map((r) => r.roleId),
-        },
-        { expiresIn: env.JWT_EXPIRES_IN }
-      );
-
-      return {
-        accessToken: newAccessToken,
-      };
+      decoded = fastify.jwt.verify<{ userId: string; type: string }>(submittedToken);
     } catch {
       throw new UnauthorizedError('Refresh token expired or invalid');
     }
+
+    if (!decoded || decoded.type !== 'refresh' || !decoded.userId) {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+
+    const tokenHash = hashString(submittedToken);
+    const storedToken = await prisma.refreshToken.findUnique({
+      where: { tokenHash },
+    });
+
+    if (!storedToken) {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+
+    // Replay attack detection: token was already revoked/rotated
+    if (storedToken.isRevoked) {
+      // Security measure: revoke all active refresh tokens for this user
+      await prisma.refreshToken.updateMany({
+        where: { userId: storedToken.userId },
+        data: { isRevoked: true },
+      });
+      throw new UnauthorizedError('Refresh token replay detected. All sessions revoked for security.');
+    }
+
+    // Expiration check against stored expiration
+    if (new Date() > storedToken.expiresAt) {
+      throw new UnauthorizedError('Refresh token expired');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: storedToken.userId },
+      include: { userRoles: true },
+    });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedError('User account not found or suspended');
+    }
+
+    // Issue new access token
+    const newAccessToken = fastify.jwt.sign(
+      {
+        userId: user.id,
+        phoneNumber: user.phoneNumber,
+        roles: user.userRoles.map((r) => r.roleId),
+      },
+      { expiresIn: env.JWT_EXPIRES_IN }
+    );
+
+    // Rotate: Issue new refresh token
+    const newRefreshToken = fastify.jwt.sign(
+      { userId: user.id, type: 'refresh', jti: randomUUID() },
+      { expiresIn: env.REFRESH_TOKEN_EXPIRES_IN }
+    );
+    const newTokenHash = hashString(newRefreshToken);
+    const newExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    // Atomically revoke current token and persist newly rotated token
+    await prisma.$transaction([
+      prisma.refreshToken.update({
+        where: { id: storedToken.id },
+        data: {
+          isRevoked: true,
+          replacedBy: newTokenHash,
+        },
+      }),
+      prisma.refreshToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: newTokenHash,
+          expiresAt: newExpiresAt,
+          isRevoked: false,
+        },
+      }),
+    ]);
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    };
+  }
+
+  /**
+   * Explicitly revokes a refresh token (e.g. on logout)
+   */
+  async revokeRefreshToken(token: string) {
+    const tokenHash = hashString(token);
+    await prisma.refreshToken.updateMany({
+      where: { tokenHash },
+      data: { isRevoked: true },
+    });
+    return { success: true };
   }
 
   /**

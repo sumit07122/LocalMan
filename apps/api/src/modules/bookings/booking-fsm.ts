@@ -6,8 +6,8 @@ import {
 import {
   InvalidStateTransitionError,
   ForbiddenError,
-  ValidationError,
 } from '../../common/errors/app-error.js';
+import { bookingOtpService } from './booking-otp.service.js';
 
 export interface TransitionContext {
   bookingId: string;
@@ -15,12 +15,14 @@ export interface TransitionContext {
   targetState: BookingStatusType;
   actorId: string;
   actorRoles: string[];
+  actorRole?: string;
   isCustomer: boolean;
   isAssignedProvider: boolean;
   isAdmin: boolean;
   startOtpExpected?: string;
   startOtpSubmitted?: string;
   completionPhotos?: string[];
+  createdAt?: Date | string;
 }
 
 export class BookingFSM {
@@ -49,9 +51,20 @@ export class BookingFSM {
     // 2. Role and permission checks for specific states
     switch (targetState) {
       case BookingStatus.PROVIDER_ACCEPTED:
+        if (!isAssignedProvider && !isCustomer && !isAdmin && context.actorRole !== 'SYSTEM') {
+          throw new ForbiddenError('Only the assigned service professional, customer, or admin can accept this request.');
+        }
+        break;
+
+      case BookingStatus.CONFIRMED:
+        if (!isCustomer && !isAssignedProvider && !isAdmin && context.actorRole !== 'SYSTEM') {
+          throw new ForbiddenError('Only the customer, assigned professional, or admin can confirm this booking.');
+        }
+        break;
+
       case BookingStatus.REJECTED:
         if (!isAssignedProvider && !isAdmin) {
-          throw new ForbiddenError('Only the assigned service professional can accept or reject this request.');
+          throw new ForbiddenError('Only the assigned service professional can reject this request.');
         }
         break;
 
@@ -68,12 +81,10 @@ export class BookingFSM {
         }
         // Strict Customer Start OTP Verification
         if (!isAdmin) {
-          if (!startOtpSubmitted || startOtpSubmitted.trim().length !== 6) {
-            throw new ValidationError('A 6-digit Customer Start OTP is required to start the job.');
-          }
-          if (startOtpSubmitted !== startOtpExpected) {
-            throw new ValidationError('Invalid Customer Start OTP. Please check the code shown in the customer app.');
-          }
+          bookingOtpService.verifyStartOtp(
+            { id: context.bookingId, startOtp: startOtpExpected || '', createdAt: context.createdAt },
+            startOtpSubmitted
+          );
         }
         break;
 
@@ -89,6 +100,26 @@ export class BookingFSM {
         }
         break;
 
+      case BookingStatus.NO_SHOW:
+        if (currentState === BookingStatus.ARRIVED) {
+          // Provider marking customer no-show after arrival
+          if (!isAssignedProvider && !isAdmin) {
+            throw new ForbiddenError('Only the assigned professional or admin can record customer no-show.');
+          }
+        } else {
+          // Customer reporting provider no-show
+          if (!isCustomer && !isAdmin) {
+            throw new ForbiddenError('Only the customer or admin can record provider no-show.');
+          }
+        }
+        break;
+
+      case BookingStatus.DISPUTED:
+        if (!isCustomer && !isAssignedProvider && !isAdmin) {
+          throw new ForbiddenError('Unauthorized to raise a dispute for this booking.');
+        }
+        break;
+
       case BookingStatus.REVIEWED:
         if (!isCustomer && !isAdmin) {
           throw new ForbiddenError('Only the customer can submit a review.');
@@ -96,8 +127,15 @@ export class BookingFSM {
         break;
 
       case BookingStatus.REFUNDED:
-        if (!isAdmin) {
-          throw new ForbiddenError('Only an administrator can authorize a refund.');
+        if (!isAdmin && context.actorRole !== 'SYSTEM') {
+          throw new ForbiddenError('Only an administrator or authoritative refund service can authorize a refund.');
+        }
+        break;
+
+      case BookingStatus.REQUESTED:
+        // When an assigned provider cancels, returning booking to dispatch pool
+        if (!isAssignedProvider && !isAdmin && context.actorRole !== 'SYSTEM') {
+          throw new ForbiddenError('Only the assigned professional or system can return booking to dispatch.');
         }
         break;
     }

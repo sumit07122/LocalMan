@@ -9,6 +9,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   fastify.post('/otp/send', controller.sendOtp);
   fastify.post('/otp/verify', (req, rep) => controller.verifyOtp(req, rep, fastify));
   fastify.post('/refresh', (req, rep) => controller.refreshToken(req, rep, fastify));
+  fastify.post('/logout', controller.logout);
 
   // Protected Routes
   fastify.get('/me', { preHandler: [authenticate] }, controller.getMe);

@@ -46,4 +46,12 @@ export class AuthController {
     const result = await this.authService.updateProfile(request.user.id, validated);
     return sendSuccess(reply, result, 200);
   };
+
+  logout = async (request: FastifyRequest, reply: FastifyReply) => {
+    const body = request.body as { refreshToken?: string } | undefined;
+    if (body?.refreshToken) {
+      await this.authService.revokeRefreshToken(body.refreshToken);
+    }
+    return sendSuccess(reply, { message: 'Logged out successfully' }, 200);
+  };
 }

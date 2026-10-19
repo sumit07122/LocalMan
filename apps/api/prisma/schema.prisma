@@ -45,6 +45,9 @@ model User {
   reviews              Review[]
   complaints           Complaint[]            @relation("CustomerComplaints")
   auditLogs            AuditLog[]
+  refreshTokens        RefreshToken[]
+  conversationParticipations ConversationParticipant[]
+  sentMessages         Message[]              @relation("UserSentMessages")
 
   @@index([phoneNumber], name: "idx_users_phone")
   @@map("users")
@@ -140,6 +143,10 @@ model Provider {
   isOnline                 Boolean            @default(false) @map("is_online")
   currentLatitude          Float?             @map("current_latitude")
   currentLongitude         Float?             @map("current_longitude")
+  lastLocationAt           DateTime?          @map("last_location_at")
+  currentAccuracyMeters    Float?             @map("current_accuracy_meters")
+  currentHeading           Float?             @map("current_heading")
+  currentSpeed             Float?             @map("current_speed")
   ratingAverage            Decimal            @default(5.00) @map("rating_average") @db.Decimal(3, 2)
   ratingCount              Int                @default(0) @map("rating_count")
   commissionRateOverride   Decimal?           @map("commission_rate_override") @db.Decimal(5, 2)
@@ -150,17 +157,22 @@ model Provider {
   createdAt                DateTime           @default(now()) @map("created_at")
   updatedAt                DateTime           @updatedAt @map("updated_at")
 
-  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documents    ProviderDocument[]
-  services     ProviderService[]
-  serviceAreas ProviderServiceArea[]
-  availability ProviderAvailability[]
-  bookings     Booking[]              @relation("ProviderBookings")
-  quotes       BookingQuote[]
-  payouts      ProviderPayout[]
-  reviews      Review[]
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents     ProviderDocument[]
+  services      ProviderService[]
+  serviceAreas  ProviderServiceArea[]
+  availability  ProviderAvailability[]
+  bookings      Booking[]              @relation("ProviderBookings")
+  quotes        BookingQuote[]
+  payouts       ProviderPayout[]
+  reviews       Review[]
+  wallet        ProviderWallet?
+  ledgerEntries WalletLedgerEntry[]
+  dispatchOffers DispatchOffer[]
+  locationLogs  ProviderLocationLog[]
 
   @@index([verificationStatus, isOnline], name: "idx_providers_status")
+  @@index([isOnline, lastLocationAt], name: "idx_providers_online_location")
   @@map("providers")
 }
 
@@ -339,6 +351,15 @@ model Booking {
   customerNotes            String?           @map("customer_notes")
   internalAdminNotes       String?           @map("internal_admin_notes")
 
+  // Phase 3C Snapshots & Idempotency
+  jobDescription           String?           @map("job_description")
+  addressSnapshot          Json?             @map("address_snapshot")
+  pricingSnapshot          Json?             @map("pricing_snapshot")
+  serviceSnapshot          Json?             @map("service_snapshot")
+  idempotencyKey           String?           @map("idempotency_key") @db.VarChar(100)
+  idempotencyPayloadHash   String?           @map("idempotency_payload_hash") @db.VarChar(64)
+  attachments              Json?             @map("attachments")
+
   createdAt                DateTime          @default(now()) @map("created_at")
   updatedAt                DateTime          @updatedAt @map("updated_at")
 
@@ -354,9 +375,14 @@ model Booking {
   review        Review?
   complaints    Complaint[]
   payouts       ProviderPayout[]
+  ledgerEntries WalletLedgerEntry[]
+  dispatchOffers DispatchOffer[]
+  locationLogs  ProviderLocationLog[]
+  conversation  Conversation?
 
   @@index([customerId, currentStatus], name: "idx_bookings_customer")
   @@index([providerId, currentStatus], name: "idx_bookings_provider")
+  @@index([customerId, idempotencyKey], name: "idx_bookings_customer_idempotency")
   @@map("bookings")
 }
 
@@ -396,18 +422,30 @@ model BookingMaterial {
 }
 
 model BookingQuote {
-  id               String   @id @default(uuid())
-  bookingId        String   @map("booking_id")
-  providerId       String   @map("provider_id")
-  quoteAmountPaisa Int      @map("quote_amount_paisa")
-  breakdownNotes   String?  @map("breakdown_notes")
-  estimatedHours   Decimal? @map("estimated_hours") @db.Decimal(4, 1)
-  status           String   @default("SUBMITTED") @db.VarChar(20)
-  createdAt        DateTime @default(now()) @map("created_at")
+  id                       String   @id @default(uuid())
+  bookingId                String   @map("booking_id")
+  providerId               String   @map("provider_id")
+  quoteAmountPaisa         Int      @map("quote_amount_paisa")
+  subtotalPaisa            Int      @default(0) @map("subtotal_paisa")
+  materialsPaisa           Int      @default(0) @map("materials_paisa")
+  taxPaisa                 Int      @default(0) @map("tax_paisa")
+  breakdownNotes           String?  @map("breakdown_notes")
+  estimatedHours           Decimal? @map("estimated_hours") @db.Decimal(4, 1)
+  estimatedDurationMinutes Int?     @map("estimated_duration_minutes")
+  items                    Json?    @map("items")
+  status                   String   @default("SUBMITTED") @db.VarChar(20)
+  validUntil               DateTime? @map("valid_until")
+  version                  Int      @default(1) @map("version")
+  acceptedAt               DateTime? @map("accepted_at")
+  rejectedAt               DateTime? @map("rejected_at")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @default(now()) @updatedAt @map("updated_at")
 
   booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
+  @@index([bookingId, status], name: "idx_booking_quotes_booking")
+  @@index([providerId, status], name: "idx_booking_quotes_provider")
   @@map("booking_quotes")
 }
 
@@ -481,23 +519,98 @@ model Refund {
 }
 
 model ProviderPayout {
-  id                     String    @id @default(uuid())
-  providerId             String    @map("provider_id")
-  bookingId              String?   @map("booking_id")
-  grossAmountPaisa       Int       @map("gross_amount_paisa")
-  platformDeductionPaisa Int       @map("platform_deduction_paisa")
-  tdsDeductionPaisa      Int       @default(0) @map("tds_deduction_paisa")
-  netPayoutPaisa         Int       @map("net_payout_paisa")
-  payoutMode             String    @default("BANK_TRANSFER") @map("payout_mode") @db.VarChar(20)
-  payoutReference        String?   @map("payout_reference") @db.VarChar(100)
-  status                 String    @default("PENDING") @db.VarChar(20)
-  processedAt            DateTime? @map("processed_at")
-  createdAt              DateTime  @default(now()) @map("created_at")
+  id                     String              @id @default(uuid())
+  providerId             String              @map("provider_id")
+  bookingId              String?             @map("booking_id")
+  grossAmountPaisa       Int                 @map("gross_amount_paisa")
+  platformDeductionPaisa Int                 @map("platform_deduction_paisa")
+  tdsDeductionPaisa      Int                 @default(0) @map("tds_deduction_paisa")
+  netPayoutPaisa         Int                 @map("net_payout_paisa")
+  appliedCommissionRate  Decimal?            @map("applied_commission_rate") @db.Decimal(5, 2)
+  appliedTdsRate         Decimal?            @map("applied_tds_rate") @db.Decimal(5, 2)
+  payoutMode             String              @default("BANK_TRANSFER") @map("payout_mode") @db.VarChar(20)
+  payoutReference        String?             @map("payout_reference") @db.VarChar(100)
+  status                 String              @default("PENDING") @db.VarChar(20)
+  failureReason          String?             @map("failure_reason")
+  idempotencyKey         String?             @unique @map("idempotency_key") @db.VarChar(120)
+  processedAt            DateTime?           @map("processed_at")
+  createdAt              DateTime            @default(now()) @map("created_at")
 
-  provider Provider @relation(fields: [providerId], references: [id])
-  booking  Booking? @relation(fields: [bookingId], references: [id])
+  provider      Provider            @relation(fields: [providerId], references: [id])
+  booking       Booking?            @relation(fields: [bookingId], references: [id])
+  ledgerEntries WalletLedgerEntry[]
 
   @@map("provider_payouts")
+}
+
+// -----------------------------------------------------------------------------
+// FINANCIAL LEDGER & PROVIDER WALLETS (PHASE 2E)
+// -----------------------------------------------------------------------------
+
+enum LedgerEntryType {
+  BOOKING_CHARGE
+  CUSTOMER_PAYMENT
+  PLATFORM_COMMISSION
+  STATUTORY_TDS
+  PROVIDER_GROSS_EARNING
+  PROVIDER_NET_EARNING
+  REFUND
+  PAYOUT_CREATED
+  PAYOUT_PROCESSING
+  PAYOUT_COMPLETED
+  PAYOUT_FAILED
+  PAYOUT_REVERSED
+  ADMIN_ADJUSTMENT
+}
+
+enum LedgerDirection {
+  CREDIT
+  DEBIT
+}
+
+model ProviderWallet {
+  id                    String              @id @default(uuid())
+  providerId            String              @unique @map("provider_id")
+  availableBalancePaisa Int                 @default(0) @map("available_balance_paisa")
+  pendingBalancePaisa   Int                 @default(0) @map("pending_balance_paisa")
+  paidOutBalancePaisa   Int                 @default(0) @map("paid_out_balance_paisa")
+  currency              String              @default("INR") @db.VarChar(5)
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+
+  provider      Provider            @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  ledgerEntries WalletLedgerEntry[]
+
+  @@map("provider_wallets")
+}
+
+model WalletLedgerEntry {
+  id                      String          @id @default(uuid())
+  walletId                String          @map("wallet_id")
+  providerId              String          @map("provider_id")
+  bookingId               String?         @map("booking_id")
+  payoutId                String?         @map("payout_id")
+  entryType               LedgerEntryType @map("entry_type")
+  direction               LedgerDirection @map("direction")
+  amountPaisa             Int             @map("amount_paisa")
+  currency                String          @default("INR") @db.VarChar(5)
+  resultingAvailablePaisa Int             @map("resulting_available_paisa")
+  resultingPendingPaisa   Int             @map("resulting_pending_paisa")
+  idempotencyKey          String?         @unique @map("idempotency_key") @db.VarChar(120)
+  sourceReferenceId       String?         @map("source_reference_id") @db.VarChar(120)
+  description             String?
+  metadata                Json?
+  createdAt               DateTime        @default(now()) @map("created_at")
+
+  wallet   ProviderWallet  @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  provider Provider        @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  booking  Booking?        @relation(fields: [bookingId], references: [id])
+  payout   ProviderPayout? @relation(fields: [payoutId], references: [id])
+
+  @@index([providerId, createdAt], name: "idx_ledger_provider_created")
+  @@index([walletId, createdAt], name: "idx_ledger_wallet_created")
+  @@index([bookingId], name: "idx_ledger_booking")
+  @@map("wallet_ledger_entries")
 }
 
 // -----------------------------------------------------------------------------
@@ -579,3 +692,154 @@ model Coupon {
 
   @@map("coupons")
 }
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  tokenHash  String    @unique @map("token_hash")
+  isRevoked  Boolean   @default(false) @map("is_revoked")
+  replacedBy String?   @map("replaced_by")
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRevoked], name: "idx_refresh_user_revoked")
+  @@map("refresh_tokens")
+}
+
+// -----------------------------------------------------------------------------
+// REAL-TIME DISPATCH & OFFER MANAGEMENT (Phase 2F)
+// -----------------------------------------------------------------------------
+
+enum DispatchOfferStatus {
+  OFFERED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+model DispatchOffer {
+  id              String              @id @default(uuid())
+  bookingId       String              @map("booking_id")
+  providerId      String              @map("provider_id")
+  status          DispatchOfferStatus @default(OFFERED)
+  attemptNumber   Int                 @default(1) @map("attempt_number")
+  expiresAt       DateTime            @map("expires_at")
+  respondedAt     DateTime?           @map("responded_at")
+  rejectionReason String?             @map("rejection_reason")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  booking         Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  provider        Provider            @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, status], name: "idx_dispatch_offers_booking")
+  @@index([providerId, status], name: "idx_dispatch_offers_provider")
+  @@index([expiresAt, status], name: "idx_dispatch_offers_expiration")
+  @@map("dispatch_offers")
+}
+
+// -----------------------------------------------------------------------------
+// LOCATION & GPS TRACKING (Phase 2G)
+// -----------------------------------------------------------------------------
+
+model ProviderLocationLog {
+  id         String   @id @default(uuid())
+  providerId String   @map("provider_id")
+  bookingId  String?  @map("booking_id")
+  latitude   Float
+  longitude  Float
+  accuracy   Float?
+  heading    Float?
+  speed      Float?
+  source     String   @default("FOREGROUND_APP") @db.VarChar(50)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  provider   Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  booking    Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([providerId, createdAt(sort: Desc)], name: "idx_location_logs_provider_created")
+  @@index([bookingId], name: "idx_location_logs_booking")
+  @@map("provider_location_logs")
+}
+
+// -----------------------------------------------------------------------------
+// CHAT & MESSAGING (Phase 3I)
+// -----------------------------------------------------------------------------
+
+model Conversation {
+  id            String                    @id @default(uuid())
+  bookingId     String                    @unique @map("booking_id")
+  status        String                    @default("ACTIVE") @db.VarChar(32)
+  lastMessageAt DateTime?                 @map("last_message_at")
+  createdAt     DateTime                  @default(now()) @map("created_at")
+  updatedAt     DateTime                  @updatedAt @map("updated_at")
+
+  booking       Booking                   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  participants  ConversationParticipant[]
+  messages      Message[]
+
+  @@index([bookingId], name: "idx_conversations_booking")
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id                 String       @id @default(uuid())
+  conversationId     String       @map("conversation_id")
+  userId             String       @map("user_id")
+  role               String       @db.VarChar(32)
+  lastReadMessageId  String?      @map("last_read_message_id")
+  lastReadAt         DateTime?    @map("last_read_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  conversation       Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId], name: "idx_participant_conversation_user")
+  @@index([userId], name: "idx_participant_user")
+  @@map("conversation_participants")
+}
+
+model Message {
+  id               String       @id @default(uuid())
+  conversationId   String       @map("conversation_id")
+  senderUserId     String?      @map("sender_user_id")
+  clientMessageId  String?      @map("client_message_id") @db.VarChar(100)
+  messageType      String       @default("TEXT") @map("message_type") @db.VarChar(32)
+  body             String       @db.Text
+  replyToMessageId String?      @map("reply_to_message_id")
+  metadata         Json?
+  editedAt         DateTime?    @map("edited_at")
+  deletedAt        DateTime?    @map("deleted_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender           User?        @relation("UserSentMessages", fields: [senderUserId], references: [id], onDelete: SetNull)
+  replyTo          Message?     @relation("MessageReplies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+  replies          Message[]    @relation("MessageReplies")
+
+  @@unique([conversationId, clientMessageId], name: "idx_conversation_client_msg")
+  @@index([conversationId, createdAt], name: "idx_messages_conversation_created")
+  @@index([senderUserId], name: "idx_messages_sender")
+  @@map("messages")
+}
+
+model ChatOutboxEvent {
+  id          String    @id @default(uuid())
+  channel     String    @db.VarChar(100)
+  eventType   String    @map("event_type") @db.VarChar(50)
+  payload     Json
+  isDelivered Boolean   @default(false) @map("is_delivered")
+  deliveredAt DateTime? @map("delivered_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([isDelivered, createdAt], name: "idx_chat_outbox_delivered")
+  @@map("chat_outbox_events")
+}
+
+

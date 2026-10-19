@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../domain/auth_state.dart';
 
-class ProviderOtpScreen extends StatefulWidget {
+class ProviderOtpScreen extends ConsumerStatefulWidget {
   final String phoneNumber;
   final String trade;
 
@@ -12,39 +14,54 @@ class ProviderOtpScreen extends StatefulWidget {
   });
 
   @override
-  State<ProviderOtpScreen> createState() => _ProviderOtpScreenState();
+  ConsumerState<ProviderOtpScreen> createState() => _ProviderOtpScreenState();
 }
 
-class _ProviderOtpScreenState extends State<ProviderOtpScreen> {
-  final _otpController = TextEditingController(text: '123456');
-  bool _isLoading = false;
+class _ProviderOtpScreenState extends ConsumerState<ProviderOtpScreen> {
+  final _otpController = TextEditingController();
 
-  void _verifyOtp() {
+  Future<void> _verifyOtp() async {
     final otp = _otpController.text.trim();
-    if (otp.length != 6) {
+    if (otp.length != 6 || !RegExp(r'^\d{6}$').hasMatch(otp)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the 6-digit OTP.')),
+        const SnackBar(
+          content: Text('Please enter a valid 6-digit numeric OTP.'),
+          backgroundColor: Colors.redAccent,
+        ),
       );
       return;
     }
 
-    setState(() => _isLoading = true);
+    final success = await ref.read(authNotifierProvider.notifier).verifyOtp(
+          phoneNumber: widget.phoneNumber,
+          otp: otp,
+        );
 
-    Future.delayed(const Duration(milliseconds: 700), () {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
+    if (!mounted) return;
 
-      // Successfully authenticated
+    if (!success) {
+      final error = ref.read(authNotifierProvider).errorMessage ?? 'Invalid OTP code.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+    // Note: When successful, GoRouter route guard automatically transitions to '/'
+  }
+
+  Future<void> _resendOtp() async {
+    final success = await ref.read(authNotifierProvider.notifier).sendOtp(widget.phoneNumber);
+    if (!mounted) return;
+    if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Welcome back, Partner! Duty status is ready.'),
+          content: Text('A new OTP has been dispatched to your mobile number.'),
           backgroundColor: Color(0xFF10B981),
         ),
       );
-
-      // Navigate to dashboard
-      context.go('/');
-    });
+    }
   }
 
   @override
@@ -55,6 +72,8 @@ class _ProviderOtpScreenState extends State<ProviderOtpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authNotifierProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
@@ -64,7 +83,10 @@ class _ProviderOtpScreenState extends State<ProviderOtpScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Partner Verification', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
+        title: const Text(
+          'Partner Verification',
+          style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -110,6 +132,7 @@ class _ProviderOtpScreenState extends State<ProviderOtpScreen> {
                       ),
                       decoration: InputDecoration(
                         counterText: '',
+                        hintText: '••••••',
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(
@@ -131,13 +154,9 @@ class _ProviderOtpScreenState extends State<ProviderOtpScreen> {
                           style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
                         ),
                         TextButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Demo OTP sent: 123456')),
-                            );
-                          },
+                          onPressed: authState.isLoading ? null : _resendOtp,
                           child: const Text(
-                            'Resend OTP (30s)',
+                            'Resend Code',
                             style: TextStyle(color: Color(0xFFF59E0B), fontWeight: FontWeight.w700),
                           ),
                         ),
@@ -148,13 +167,13 @@ class _ProviderOtpScreenState extends State<ProviderOtpScreen> {
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _verifyOtp,
+                        onPressed: authState.isLoading ? null : _verifyOtp,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFF59E0B),
                           foregroundColor: const Color(0xFF0F172A),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: _isLoading
+                        child: authState.isLoading
                             ? const SizedBox(
                                 width: 22,
                                 height: 22,
@@ -171,18 +190,6 @@ class _ProviderOtpScreenState extends State<ProviderOtpScreen> {
               ),
 
               const Spacer(),
-
-              Center(
-                child: TextButton.icon(
-                  onPressed: () => context.push('/kyc'),
-                  icon: const Icon(Icons.shield, color: Color(0xFFF59E0B), size: 18),
-                  label: const Text(
-                    'Need KYC Verification / Bank Update? Click Here',
-                    style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
             ],
           ),
         ),

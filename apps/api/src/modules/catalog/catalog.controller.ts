@@ -6,6 +6,7 @@ import {
   CreateServiceSchema,
 } from '@localman/contracts';
 import { sendSuccess } from '../../common/utils/response.js';
+import { NotFoundError } from '../../common/errors/app-error.js';
 
 export class CatalogController {
   private catalogService = new CatalogService();
@@ -15,18 +16,37 @@ export class CatalogController {
     return sendSuccess(reply, categories, 200);
   };
 
+  getCategoryById = async (
+    request: FastifyRequest<{ Params: { categoryId?: string; id?: string } }>,
+    reply: FastifyReply
+  ) => {
+    const id = request.params.categoryId || request.params.id;
+    if (!id) {
+      throw new NotFoundError('Category ID is required');
+    }
+    const category = await this.catalogService.getCategoryById(id);
+    return sendSuccess(reply, category, 200);
+  };
+
   searchServices = async (request: FastifyRequest, reply: FastifyReply) => {
     const query = SearchServicesQuerySchema.parse(request.query);
     const result = await this.catalogService.searchServices(query);
     return sendSuccess(reply, result.services, 200, {
-      page: result.page,
-      limit: result.limit,
-      total: result.total,
+      page: result.pagination.page,
+      limit: result.pagination.limit,
+      total: result.pagination.total,
     });
   };
 
-  getServiceById = async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    const service = await this.catalogService.getServiceById(request.params.id);
+  getServiceById = async (
+    request: FastifyRequest<{ Params: { serviceId?: string; id?: string } }>,
+    reply: FastifyReply
+  ) => {
+    const id = request.params.serviceId || request.params.id;
+    if (!id) {
+      throw new NotFoundError('Service ID is required');
+    }
+    const service = await this.catalogService.getServiceById(id);
     return sendSuccess(reply, service, 200);
   };
 

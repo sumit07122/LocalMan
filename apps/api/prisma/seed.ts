@@ -293,6 +293,223 @@ async function main() {
   }
 
   console.log(`✅ Seeded ${categoriesData.length} service categories with real Indian service offerings.`);
+
+  // 4. Seed Synthetic Development Users & Provider Accounts
+  const devCustomer = await prisma.user.upsert({
+    where: { phoneNumber: '9876543210' },
+    update: {},
+    create: {
+      phoneCountryCode: '+91',
+      phoneNumber: '9876543210',
+      fullName: 'Dev Customer (Synthetic)',
+      email: 'customer.dev@localman.test',
+      isActive: true,
+      isPhoneVerified: true,
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: {
+        userId: devCustomer.id,
+        roleId: 'CUSTOMER',
+      },
+    },
+    update: {},
+    create: {
+      userId: devCustomer.id,
+      roleId: 'CUSTOMER',
+    },
+  });
+
+  const devAddress = await prisma.address.upsert({
+    where: { id: 'addr_dev_customer_01' },
+    update: {},
+    create: {
+      id: 'addr_dev_customer_01',
+      userId: devCustomer.id,
+      label: 'Home',
+      addressLine1: 'Flat 402, Sai Residency',
+      addressLine2: '12th Main, Indiranagar',
+      landmark: 'Near Metro Station',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      postalCode: '560038',
+      latitude: 12.9784,
+      longitude: 77.6408,
+      isDefault: true,
+    },
+  });
+
+  // Synthetic Provider 1
+  const devProviderUser1 = await prisma.user.upsert({
+    where: { phoneNumber: '9876500001' },
+    update: {},
+    create: {
+      phoneCountryCode: '+91',
+      phoneNumber: '9876500001',
+      fullName: 'Dev Provider Ramesh (Synthetic)',
+      email: 'ramesh.provider@localman.test',
+      isActive: true,
+      isPhoneVerified: true,
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: {
+        userId: devProviderUser1.id,
+        roleId: 'PROVIDER',
+      },
+    },
+    update: {},
+    create: {
+      userId: devProviderUser1.id,
+      roleId: 'PROVIDER',
+    },
+  });
+
+  const devProvider1 = await prisma.provider.upsert({
+    where: { userId: devProviderUser1.id },
+    update: {},
+    create: {
+      userId: devProviderUser1.id,
+      businessName: 'Ramesh Quick Plumbers (Synthetic)',
+      bio: 'Certified master plumber with 8+ years experience in Indiranagar & Domlur.',
+      experienceYears: 8,
+      verificationStatus: 'VERIFIED',
+      isOnline: true,
+      currentLatitude: 12.9750,
+      currentLongitude: 77.6350,
+      ratingAverage: 4.85,
+      ratingCount: 42,
+      bankAccountHolder: 'Ramesh Kumar',
+      bankAccountNumberEnc: '918273645019',
+      bankIfscCode: 'HDFC0001234',
+      upiId: 'ramesh@okhdfcbank',
+    },
+  });
+
+  // Link Service to Provider 1
+  const tapService = await prisma.service.findUnique({
+    where: { slug: 'tap-shower-repair' },
+  });
+
+  if (tapService) {
+    await prisma.providerService.upsert({
+      where: {
+        providerId_serviceId: {
+          providerId: devProvider1.id,
+          serviceId: tapService.id,
+        },
+      },
+      update: {},
+      create: {
+        providerId: devProvider1.id,
+        serviceId: tapService.id,
+        isEnabled: true,
+      },
+    });
+
+    // Synthetic Provider Service Area
+    await prisma.providerServiceArea.upsert({
+      where: { id: 'sa_dev_provider1_01' },
+      update: {},
+      create: {
+        id: 'sa_dev_provider1_01',
+        providerId: devProvider1.id,
+        city: 'Bengaluru',
+        serviceRadiusMeters: 10000,
+        centerLatitude: 12.9750,
+        centerLongitude: 77.6350,
+      },
+    });
+
+    // Synthetic Booking for Provider 1 in REQUESTED state
+    const devBooking1 = await prisma.booking.upsert({
+      where: { bookingNumber: 'BK-SYN-20261018-001' },
+      update: {},
+      create: {
+        bookingNumber: 'BK-SYN-20261018-001',
+        customerId: devCustomer.id,
+        providerId: devProvider1.id,
+        serviceId: tapService.id,
+        addressId: devAddress.id,
+        currentStatus: 'REQUESTED',
+        pricingModel: 'FIXED_PRICE',
+        scheduledDate: new Date(),
+        scheduledTimeSlot: '10:00 AM - 12:00 PM',
+        startOtp: '482910',
+        baseAmountPaisa: 19900,
+        taxAmountPaisa: 3582,
+        platformFeePaisa: 2985,
+        totalAmountPaisa: 23482,
+        providerEarningPaisa: 16915,
+        customerNotes: 'Master bathroom showerhead has zero pressure and pipe is vibrating.',
+      },
+    });
+
+    await prisma.bookingStatusHistory.upsert({
+      where: { id: 'bsh_dev_booking1_01' },
+      update: {},
+      create: {
+        id: 'bsh_dev_booking1_01',
+        bookingId: devBooking1.id,
+        fromState: null,
+        toState: 'REQUESTED',
+        actorId: devCustomer.id,
+        actorRole: 'CUSTOMER',
+        reason: 'Initial synthetic booking placed by customer for dev testing',
+      },
+    });
+  }
+
+  // Synthetic Provider 2 (Isolation / IDOR verification)
+  const devProviderUser2 = await prisma.user.upsert({
+    where: { phoneNumber: '9876500002' },
+    update: {},
+    create: {
+      phoneCountryCode: '+91',
+      phoneNumber: '9876500002',
+      fullName: 'Dev Provider Suresh (Synthetic)',
+      email: 'suresh.provider@localman.test',
+      isActive: true,
+      isPhoneVerified: true,
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: {
+        userId: devProviderUser2.id,
+        roleId: 'PROVIDER',
+      },
+    },
+    update: {},
+    create: {
+      userId: devProviderUser2.id,
+      roleId: 'PROVIDER',
+    },
+  });
+
+  const devProvider2 = await prisma.provider.upsert({
+    where: { userId: devProviderUser2.id },
+    update: {},
+    create: {
+      userId: devProviderUser2.id,
+      businessName: 'Suresh Multi-Services (Synthetic)',
+      bio: 'Electrical & appliance diagnostics.',
+      experienceYears: 5,
+      verificationStatus: 'VERIFIED',
+      isOnline: false,
+      currentLatitude: 12.9250,
+      currentLongitude: 77.5850,
+      ratingAverage: 4.70,
+      ratingCount: 19,
+    },
+  });
+
+  console.log(`✅ Seeded synthetic dev users, providers (${devProvider1.businessName}, ${devProvider2.businessName}) and test bookings.`);
   console.log('🎉 LocalMan database seeding complete!');
 }
 

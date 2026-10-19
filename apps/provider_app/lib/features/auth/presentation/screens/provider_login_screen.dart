@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../domain/auth_state.dart';
 
-class ProviderLoginScreen extends StatefulWidget {
+class ProviderLoginScreen extends ConsumerStatefulWidget {
   const ProviderLoginScreen({super.key});
 
   @override
-  State<ProviderLoginScreen> createState() => _ProviderLoginScreenState();
+  ConsumerState<ProviderLoginScreen> createState() => _ProviderLoginScreenState();
 }
 
-class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
-  final _phoneController = TextEditingController(text: '9876543210');
-  bool _isLoading = false;
+class _ProviderLoginScreenState extends ConsumerState<ProviderLoginScreen> {
+  final _phoneController = TextEditingController();
   String _selectedTrade = 'AC Repair';
 
   final List<String> _trades = [
@@ -22,7 +23,7 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
     'House Painting',
   ];
 
-  void _handleSendOtp() {
+  Future<void> _handleSendOtp() async {
     final phone = _phoneController.text.trim();
     if (phone.length != 10 || !RegExp(r'^[6-9]\d{9}$').hasMatch(phone)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -34,12 +35,20 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
+    final success = await ref.read(authNotifierProvider.notifier).sendOtp(phone);
+    if (!mounted) return;
+
+    if (success) {
       context.push('/otp', extra: {'phone': phone, 'trade': _selectedTrade});
-    });
+    } else {
+      final error = ref.read(authNotifierProvider).errorMessage ?? 'Failed to send OTP';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   @override
@@ -50,6 +59,8 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authNotifierProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       body: SafeArea(
@@ -99,7 +110,7 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
 
               const SizedBox(height: 36),
 
-              // Hero Value Proposition
+              // Value Proposition
               const Text(
                 'Grow Your Service Business in India',
                 style: TextStyle(
@@ -111,7 +122,7 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Direct customer bookings, 15% flat commission, and zero-delay instant daily UPI bank transfers.',
+                'Direct customer bookings, transparent commission, and verified marketplace payouts.',
                 style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, height: 1.4),
               ),
 
@@ -183,11 +194,7 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: const Color(0xFFCBD5E1)),
                           ),
-                          child: const Row(
-                            children: [
-                              Text('🇮🇳 +91', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                            ],
-                          ),
+                          child: const Text('🇮🇳 +91', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -226,13 +233,13 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
                       width: double.infinity,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleSendOtp,
+                        onPressed: authState.isLoading ? null : _handleSendOtp,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFF59E0B),
                           foregroundColor: const Color(0xFF0F172A),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: _isLoading
+                        child: authState.isLoading
                             ? const SizedBox(
                                 width: 22,
                                 height: 22,
@@ -257,7 +264,6 @@ class _ProviderLoginScreenState extends State<ProviderLoginScreen> {
 
               const SizedBox(height: 28),
 
-              // Trust Signals
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(

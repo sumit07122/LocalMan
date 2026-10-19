@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { prisma } from '../../config/database.js';
 import {
   BookingStatus,
@@ -13,50 +14,207 @@ import {
   NotFoundError,
   ForbiddenError,
   ValidationError,
+  ConflictError,
 } from '../../common/errors/app-error.js';
 import { generateBookingNumber, generateSecureOtp } from '../../common/utils/crypto.js';
 import { BookingFSM } from './booking-fsm.js';
 import { AuthenticatedUser } from '../../common/middleware/auth.middleware.js';
+import { dispatchService } from '../dispatch/dispatch.service.js';
+import { realtimeService } from '../realtime/realtime.service.js';
 
 export class BookingService {
   /**
-   * Creates a new service booking in REQUESTED status with start OTP
+   * Creates a new authoritative service booking in REQUESTED status with start OTP,
+   * immutable address/pricing/service snapshots, and idempotency protection.
    */
   async createBooking(customer: AuthenticatedUser, input: CreateBookingInput) {
-    const service = await prisma.service.findUnique({
-      where: { id: input.serviceId },
-    });
+    // 1. Idempotency Check & Replay Protection
+    let idempotencyPayloadHash: string | null = null;
+    if (input.idempotencyKey) {
+      const canonicalPayload = JSON.stringify({
+        serviceId: input.serviceId,
+        addressId: input.addressId,
+        scheduledDate: input.scheduledDate,
+        scheduledTimeSlot: input.scheduledTimeSlot,
+        pricingModel: input.pricingModel,
+        jobDescription: (input.jobDescription || input.customerNotes || '').trim(),
+        hours: input.hours || null,
+      });
+      idempotencyPayloadHash = crypto
+        .createHash('sha256')
+        .update(canonicalPayload)
+        .digest('hex');
 
-    if (!service || !service.isActive) {
-      throw new NotFoundError('Selected service is not currently available.');
+      const existing = await prisma.booking.findFirst({
+        where: {
+          customerId: customer.id,
+          idempotencyKey: input.idempotencyKey,
+        },
+        include: {
+          service: true,
+          address: true,
+        },
+      });
+
+      if (existing) {
+        if (existing.idempotencyPayloadHash === idempotencyPayloadHash) {
+          // Idempotent retry: return existing booking
+          return existing;
+        } else {
+          // Idempotency key collision with materially different payload
+          throw new ConflictError(
+            'Idempotency key collision: a booking with this key was already created with different parameters.'
+          );
+        }
+      }
     }
 
-    const address = await prisma.address.findFirst({
-      where: { id: input.addressId, userId: customer.id },
+    // 2. Service & Category Active Validation
+    const service = await prisma.service.findUnique({
+      where: { id: input.serviceId },
+      include: { category: true },
+    });
+
+    if (!service) {
+      throw new NotFoundError('Selected service does not exist.');
+    }
+
+    if (!service.isActive) {
+      throw new ValidationError('Selected service is not currently active.');
+    }
+
+    if (!service.category || !service.category.isActive) {
+      throw new ValidationError('Selected service category is not currently active.');
+    }
+
+    // 3. Address Ownership & Existence Validation
+    const address = await prisma.address.findUnique({
+      where: { id: input.addressId },
     });
 
     if (!address) {
-      throw new NotFoundError('Selected service address not found on your profile.');
+      throw new NotFoundError('Selected service address not found.');
     }
 
-    // Calculate initial pricing
-    const baseAmountPaisa = service.basePricePaisa;
-    const platformCommissionPercent = Number(service.platformCommissionPercent);
-    const platformFeePaisa = Math.round((baseAmountPaisa * platformCommissionPercent) / 100);
-    const gstRatePercent = 18.0; // 18% standard Indian GST on service charges
-    const taxAmountPaisa = Math.round((baseAmountPaisa * gstRatePercent) / 100);
-    const totalAmountPaisa = baseAmountPaisa + taxAmountPaisa;
-    const providerEarningPaisa = baseAmountPaisa - platformFeePaisa;
+    if (address.userId !== customer.id) {
+      throw new ForbiddenError('You do not have permission to use this address.');
+    }
+
+    // 4. Scheduling Validation
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    if (input.scheduledDate < todayStr) {
+      throw new ValidationError('Scheduled date cannot be in the past.');
+    }
+
+    const maxFutureDate = new Date();
+    maxFutureDate.setDate(maxFutureDate.getDate() + 60);
+    const maxFutureDateStr = maxFutureDate.toISOString().split('T')[0];
+    if (input.scheduledDate > maxFutureDateStr) {
+      throw new ValidationError('Bookings can only be scheduled up to 60 days in advance.');
+    }
+
+    if (!input.scheduledTimeSlot || input.scheduledTimeSlot.trim().length === 0) {
+      throw new ValidationError('A valid scheduled time slot is required.');
+    }
+
+    // 5. Job Description & Notes Validation
+    const jobDescription = (input.jobDescription || input.customerNotes || '').trim();
+    if (input.jobDescription && input.jobDescription.trim().length < 10) {
+      throw new ValidationError('Job description must be at least 10 characters.');
+    }
+
+    // 6. Pricing Model & Authoritative Financial Derivation
+    let baseAmountPaisa = 0;
+    let platformFeePaisa = 0;
+    let taxAmountPaisa = 0;
+    let totalAmountPaisa = 0;
+    let providerEarningPaisa = 0;
+    const platformCommissionPercent = Number(service.platformCommissionPercent || 15.0);
+    const gstRatePercent = 18.0;
+
+    switch (input.pricingModel) {
+      case 'FIXED_PRICE': {
+        baseAmountPaisa = service.basePricePaisa;
+        platformFeePaisa = Math.round((baseAmountPaisa * platformCommissionPercent) / 100);
+        taxAmountPaisa = Math.round((baseAmountPaisa * gstRatePercent) / 100);
+        totalAmountPaisa = baseAmountPaisa + taxAmountPaisa;
+        providerEarningPaisa = baseAmountPaisa - platformFeePaisa;
+        break;
+      }
+      case 'HOURLY': {
+        const hours = Math.max(1, Math.round(input.hours || 1));
+        const hourlyRate = service.hourlyRatePaisa || service.basePricePaisa;
+        baseAmountPaisa = hourlyRate * hours;
+        platformFeePaisa = Math.round((baseAmountPaisa * platformCommissionPercent) / 100);
+        taxAmountPaisa = Math.round((baseAmountPaisa * gstRatePercent) / 100);
+        totalAmountPaisa = baseAmountPaisa + taxAmountPaisa;
+        providerEarningPaisa = baseAmountPaisa - platformFeePaisa;
+        break;
+      }
+      case 'INSPECTION_QUOTE': {
+        baseAmountPaisa = service.inspectionFeePaisa || 0;
+        platformFeePaisa = Math.round((baseAmountPaisa * platformCommissionPercent) / 100);
+        taxAmountPaisa = Math.round((baseAmountPaisa * gstRatePercent) / 100);
+        totalAmountPaisa = baseAmountPaisa + taxAmountPaisa;
+        providerEarningPaisa = baseAmountPaisa - platformFeePaisa;
+        break;
+      }
+      case 'CUSTOM_QUOTE': {
+        baseAmountPaisa = 0;
+        platformFeePaisa = 0;
+        taxAmountPaisa = 0;
+        totalAmountPaisa = 0;
+        providerEarningPaisa = 0;
+        break;
+      }
+      default:
+        throw new ValidationError(`Unsupported pricing model: ${input.pricingModel}`);
+    }
+
+    // 7. Snapshots for Historical Truth Preservation
+    const addressSnapshot = {
+      id: address.id,
+      label: address.label,
+      addressLine1: address.addressLine1,
+      addressLine2: address.addressLine2 || null,
+      landmark: address.landmark || null,
+      city: address.city,
+      state: address.state,
+      postalCode: address.postalCode,
+      latitude: address.latitude,
+      longitude: address.longitude,
+    };
+
+    const serviceSnapshot = {
+      id: service.id,
+      name: service.name,
+      slug: service.slug,
+      categoryId: service.categoryId,
+      categoryName: service.category.name,
+      estimatedDurationMinutes: service.estimatedDurationMinutes,
+    };
+
+    const pricingSnapshot = {
+      pricingModel: input.pricingModel,
+      basePricePaisa: service.basePricePaisa,
+      hourlyRatePaisa: service.hourlyRatePaisa || null,
+      inspectionFeePaisa: service.inspectionFeePaisa || null,
+      requestedHours: input.pricingModel === 'HOURLY' ? (input.hours || 1) : null,
+      taxRatePercent: gstRatePercent,
+      isQuoteRequired: input.pricingModel === 'CUSTOM_QUOTE',
+    };
 
     const startOtp = generateSecureOtp();
     const bookingNumber = generateBookingNumber();
 
+    // 8. Transactional Atomic Creation
     const booking = await prisma.$transaction(async (tx) => {
       const created = await tx.booking.create({
         data: {
           bookingNumber,
           customerId: customer.id,
-          providerId: input.providerId || null,
+          providerId: null,
           serviceId: service.id,
           addressId: address.id,
           currentStatus: 'REQUESTED',
@@ -64,12 +222,19 @@ export class BookingService {
           scheduledDate: new Date(input.scheduledDate),
           scheduledTimeSlot: input.scheduledTimeSlot,
           startOtp,
+          jobDescription: jobDescription || null,
+          customerNotes: input.customerNotes || null,
           baseAmountPaisa,
           taxAmountPaisa,
           platformFeePaisa,
           totalAmountPaisa,
           providerEarningPaisa,
-          customerNotes: input.customerNotes,
+          addressSnapshot,
+          pricingSnapshot,
+          serviceSnapshot,
+          attachments: (input.attachments as any) ?? undefined,
+          idempotencyKey: input.idempotencyKey || null,
+          idempotencyPayloadHash,
         },
         include: {
           service: true,
@@ -91,6 +256,18 @@ export class BookingService {
 
       return created;
     });
+
+    // 9. Automated Server-Side Dispatch Trigger
+    try {
+      const offer = await dispatchService.dispatchBooking(booking.id);
+      realtimeService.emitToBooking(booking.id, 'DISPATCH_STARTED', {
+        bookingId: booking.id,
+        attemptNumber: 1,
+        hasEligibleCandidate: !!offer,
+      });
+    } catch (dispatchErr) {
+      console.error(`[BookingService] Automated dispatch failed for booking ${booking.id}:`, dispatchErr);
+    }
 
     return booking;
   }
@@ -290,12 +467,27 @@ export class BookingService {
       throw new NotFoundError('Material item not found');
     }
 
-    const updated = await prisma.bookingMaterial.update({
-      where: { id: materialId },
-      data: {
-        isCustomerApproved: approved,
-        approvedAt: approved ? new Date() : null,
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const mat = await tx.bookingMaterial.update({
+        where: { id: materialId },
+        data: {
+          isCustomerApproved: approved,
+          approvedAt: approved ? new Date() : null,
+        },
+      });
+
+      if (approved) {
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            totalAmountPaisa: {
+              increment: material.totalPricePaisa,
+            },
+          },
+        });
+      }
+
+      return mat;
     });
 
     return updated;
@@ -326,7 +518,8 @@ export class BookingService {
       data: {
         bookingId,
         providerId: booking.provider.id,
-        quoteAmountPaisa: input.quoteAmountPaisa,
+        quoteAmountPaisa: input.quoteAmountPaisa || input.totalAmountPaisa || 0,
+        subtotalPaisa: input.subtotalPaisa || input.quoteAmountPaisa || input.totalAmountPaisa || 0,
         breakdownNotes: input.breakdownNotes,
         estimatedHours: input.estimatedHours,
       },
@@ -354,6 +547,9 @@ export class BookingService {
             },
           },
         },
+        dispatchOffers: {
+          orderBy: { attemptNumber: 'desc' },
+        },
         materials: true,
         quotes: true,
         statusHistory: {
@@ -379,7 +575,58 @@ export class BookingService {
       throw new ForbiddenError('Access denied to this booking.');
     }
 
-    return booking;
+    // Public sanitized provider info (prevent leaking sensitive KYC, banking, internal overrides)
+    let assignedProvider: any = null;
+    if (booking.provider) {
+      assignedProvider = {
+        id: booking.provider.id,
+        businessName: booking.provider.businessName,
+        fullName: booking.provider.user.fullName,
+        avatarUrl: booking.provider.user.avatarUrl,
+        ratingAverage: Number(booking.provider.ratingAverage),
+        ratingCount: booking.provider.ratingCount,
+        experienceYears: booking.provider.experienceYears,
+      };
+    }
+
+    // Authoritative status timeline
+    const timeline = (booking.statusHistory || []).map((h: any) => ({
+      id: h.id,
+      fromState: h.fromState,
+      toState: h.toState,
+      actorRole: h.actorRole,
+      reason: h.reason,
+      createdAt: h.createdAt instanceof Date ? h.createdAt.toISOString() : String(h.createdAt),
+    }));
+
+    // Dispatch status summary for customer view
+    const activeOffer = (booking.dispatchOffers || []).find(
+      (o: any) => o.status === 'OFFERED' && new Date(o.expiresAt) > new Date()
+    );
+    const dispatchStatus = {
+      isSearching: booking.currentStatus === 'REQUESTED' && !booking.providerId,
+      attemptNumber: (booking.dispatchOffers || []).length,
+      hasActiveOffer: !!activeOffer,
+      expiresAt: activeOffer
+        ? activeOffer.expiresAt instanceof Date
+          ? activeOffer.expiresAt.toISOString()
+          : String(activeOffer.expiresAt)
+        : null,
+      assignedProviderId: booking.providerId || null,
+    };
+
+    const sanitizedBooking: any = { ...booking };
+    if (!isCustomer && !isAdmin) {
+      delete sanitizedBooking.startOtp;
+      delete sanitizedBooking.completionOtp;
+    }
+
+    return {
+      ...sanitizedBooking,
+      assignedProvider,
+      timeline,
+      dispatchStatus,
+    };
   }
 
   /**
@@ -423,4 +670,70 @@ export class BookingService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  /**
+   * Triggers manual or automated marketplace dispatch for an unassigned booking
+   */
+  async triggerDispatch(bookingId: string) {
+    return dispatchService.dispatchBooking(bookingId);
+  }
+
+  /**
+   * Retrieves real-time dispatch status and attempt history for a booking
+   */
+  async getDispatchStatus(bookingId: string) {
+    return dispatchService.getBookingDispatchStatus(bookingId);
+  }
+
+  /**
+   * Retrieves bookings for current actor with pagination and optional status filter
+   */
+  async listBookings(
+    actor: AuthenticatedUser,
+    options: { page?: number; limit?: number; status?: string } = {}
+  ) {
+    const page = Math.max(1, options.page || 1);
+    const limit = Math.min(Math.max(1, options.limit || 20), 50);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (actor.roles.includes('CUSTOMER') && !actor.roles.includes('ADMIN')) {
+      where.customerId = actor.id;
+    } else if (actor.roles.includes('PROVIDER') && !actor.roles.includes('ADMIN')) {
+      const provider = await prisma.provider.findUnique({
+        where: { userId: actor.id },
+      });
+      if (!provider) {
+        throw new NotFoundError('Provider profile not found');
+      }
+      where.providerId = provider.id;
+    }
+
+    if (options.status) {
+      where.currentStatus = options.status;
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.booking.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          service: true,
+          address: true,
+        },
+      }),
+      prisma.booking.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+    };
+  }
 }
+

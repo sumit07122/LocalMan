@@ -1,20 +1,53 @@
+import '../config/env_config.dart';
+
 class ApiConstants {
-  // Set to local host / machine IP for Android Emulator (10.0.2.2) or iOS Simulator (localhost)
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:4000/api/v1',
-  );
+  static String get baseUrl => EnvConfig.baseUrl;
 
-  static const String sendOtp = '$baseUrl/auth/otp/send';
-  static const String verifyOtp = '$baseUrl/auth/otp/verify';
-  static const String refresh = '$baseUrl/auth/refresh';
-  static const String me = '$baseUrl/auth/me';
+  // Auth endpoints
+  static String get sendOtp => '$baseUrl/auth/otp/send';
+  static String get verifyOtp => '$baseUrl/auth/otp/verify';
+  static String get refresh => '$baseUrl/auth/refresh';
+  static String get me => '$baseUrl/auth/me';
+  static String get profile => '$baseUrl/auth/profile';
+  static String get logout => '$baseUrl/auth/logout';
 
-  static const String categories = '$baseUrl/catalog/categories';
-  static const String services = '$baseUrl/catalog/services';
+  // Address endpoints
+  static String get addresses => '$baseUrl/addresses';
+  static String addressById(String id) => '$baseUrl/addresses/$id';
+  static String addressSetDefault(String id) => '$baseUrl/addresses/$id/default';
 
-  static const String bookings = '$baseUrl/bookings';
-  static const String customerBookings = '$baseUrl/bookings/customer/my';
+  // Catalog endpoints
+  static String get categories => '$baseUrl/categories';
+  static String categoryById(String id) => '$baseUrl/categories/$id';
+  static String get services => '$baseUrl/services';
+  static String serviceById(String id) => '$baseUrl/services/$id';
 
-  static const String paymentOrders = '$baseUrl/payments/orders';
+  // Booking endpoints
+  static String get bookings => '$baseUrl/bookings';
+  static String get customerBookings => '$baseUrl/bookings/customer/my';
+  static String bookingById(String id) => '$baseUrl/bookings/$id';
+  static String bookingStream(String id) => '$baseUrl/bookings/$id/stream';
+
+  // Payment endpoints
+  static String bookingCheckout(String id) => '$baseUrl/bookings/$id/payment/checkout';
+  static String bookingVerifyPayment(String id) => '$baseUrl/bookings/$id/payment/verify';
+  static String bookingPaymentSummary(String id) => '$baseUrl/bookings/$id/payment/summary';
+
+  // Phase 3G Cancellation, No-Show & Dispute endpoints
+  static String bookingCancel(String id) => '$baseUrl/bookings/$id/cancel';
+  static String bookingNoShow(String id) => '$baseUrl/bookings/$id/no-show';
+  static String bookingDisputes(String id) => '$baseUrl/bookings/$id/disputes';
+  static String disputeById(String id) => '$baseUrl/disputes/$id';
+
+  // Phase 3H Quote endpoints
+  static String bookingQuotes(String bookingId) => '$baseUrl/bookings/$bookingId/quotes';
+  static String bookingQuoteById(String bookingId, String quoteId) => '$baseUrl/bookings/$bookingId/quotes/$quoteId';
+  static String acceptQuote(String bookingId, String quoteId) => '$baseUrl/bookings/$bookingId/quotes/$quoteId/accept';
+  static String rejectQuote(String bookingId, String quoteId) => '$baseUrl/bookings/$bookingId/quotes/$quoteId/reject';
+
+  // Phase 3I Chat & Messaging endpoints
+  static String bookingConversation(String bookingId) => '$baseUrl/bookings/$bookingId/messages/conversation';
+  static String bookingMessages(String bookingId) => '$baseUrl/bookings/$bookingId/messages';
+  static String bookingMessageRead(String bookingId) => '$baseUrl/bookings/$bookingId/messages/read';
+  static String bookingMessageStream(String bookingId) => '$baseUrl/bookings/$bookingId/messages/stream';
 }

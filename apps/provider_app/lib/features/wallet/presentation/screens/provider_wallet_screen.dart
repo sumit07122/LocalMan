@@ -1,147 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../shared/models/wallet_model.dart';
+import '../../data/wallet_repository.dart';
 
-class ProviderWalletScreen extends StatefulWidget {
+class ProviderWalletScreen extends ConsumerWidget {
   const ProviderWalletScreen({super.key});
 
   @override
-  State<ProviderWalletScreen> createState() => _ProviderWalletScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final walletAsync = ref.watch(walletSummaryFutureProvider);
 
-class _ProviderWalletScreenState extends State<ProviderWalletScreen> {
-  double _balance = 6420.00;
-  bool _isWithdrawing = false;
-
-  final List<Map<String, dynamic>> _ledger = [
-    {
-      'id': 'LM-20261017-X82A',
-      'service': 'AC Jet Clean & Filter Service',
-      'date': 'Today, 02:45 PM',
-      'gross': 800.0,
-      'fee': 120.0,
-      'net': 680.0,
-      'status': 'SETTLED',
-    },
-    {
-      'id': 'LM-20261017-K192',
-      'service': 'Electrical Short Circuit Repair',
-      'date': 'Today, 11:15 AM',
-      'gross': 650.0,
-      'fee': 97.5,
-      'net': 552.5,
-      'status': 'SETTLED',
-    },
-    {
-      'id': 'LM-20261016-B811',
-      'service': 'Ceiling Fan Installation (2 Units)',
-      'date': 'Yesterday',
-      'gross': 500.0,
-      'fee': 75.0,
-      'net': 425.0,
-      'status': 'SETTLED',
-    },
-    {
-      'id': 'LM-20261015-M339',
-      'service': 'Kitchen Sink Leakage Fix',
-      'date': '15 Oct 2026',
-      'gross': 450.0,
-      'fee': 67.5,
-      'net': 382.5,
-      'status': 'SETTLED',
-    },
-  ];
-
-  void _instantWithdrawal() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Instant UPI Payout',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Amount will be transferred immediately via IMPS/UPI without fees.',
-              style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.account_balance, color: Color(0xFF0F172A)),
-                  SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('HDFC Bank • Account ending 2910', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                      Text('UPI: ramesh.pro@okhdfcbank', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      setState(() {
-                        _isWithdrawing = true;
-                      });
-                      Future.delayed(const Duration(milliseconds: 900), () {
-                        if (!mounted) return;
-                        setState(() {
-                          _balance = 0.00;
-                          _isWithdrawing = false;
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('✅ ₹6,420.00 transferred successfully to your UPI! Ref: UPI-29481048'),
-                            backgroundColor: Color(0xFF10B981),
-                          ),
-                        );
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Transfer ₹6,420 Now', style: TextStyle(fontWeight: FontWeight.w800)),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -152,175 +21,394 @@ class _ProviderWalletScreenState extends State<ProviderWalletScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: () {},
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh Ledger',
+            onPressed: () => ref.refresh(walletSummaryFutureProvider),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Balance Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'AVAILABLE PAYOUT BALANCE',
-                        style: TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.1,
-                        ),
+      body: walletAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: Color(0xFFF59E0B)),
+        ),
+        error: (err, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                const SizedBox(height: 16),
+                const Text(
+                  'Failed to load wallet ledger',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  err.toString(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () => ref.refresh(walletSummaryFutureProvider),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Try Again'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        data: (summary) => RefreshIndicator(
+          color: const Color(0xFFF59E0B),
+          onRefresh: () async {
+            ref.refresh(walletSummaryFutureProvider);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Available Balance Card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
                       ),
-                      Icon(Icons.account_balance_wallet, color: Color(0xFFF59E0B), size: 22),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '₹${_balance.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed: _balance > 0 && !_isWithdrawing ? _instantWithdrawal : null,
-                      icon: const Icon(Icons.bolt, size: 20),
-                      label: _isWithdrawing
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)),
-                            )
-                          : const Text('Instant Withdraw to UPI', style: TextStyle(fontWeight: FontWeight.w800)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF59E0B),
-                        foregroundColor: const Color(0xFF0F172A),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Commission & Transparency Note
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.shield_outlined, color: Color(0xFF059669), size: 24),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Transparent Commission (15%)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF065F46))),
-                        Text(
-                          'You keep 85% of labor charge + 100% of parts/material bills. No hidden platform deducts.',
-                          style: TextStyle(fontSize: 12, color: Color(0xFF047857)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            const Text(
-              'Recent Job Earnings & Settlements',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-            ),
-            const SizedBox(height: 12),
-
-            ..._ledger.map((item) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.handyman_outlined, color: Color(0xFF0F172A), size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(item['service'], style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                          const SizedBox(height: 2),
-                          Text('${item['id']} • ${item['date']}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                          Text(
+                            'AVAILABLE PAYOUT BALANCE',
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.1,
+                            ),
+                          ),
+                          Icon(Icons.account_balance_wallet, color: Color(0xFFF59E0B), size: 22),
                         ],
                       ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '+₹${(item['net'] as double).toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            color: Color(0xFF059669),
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
+                      const SizedBox(height: 8),
+                      Text(
+                        '₹${summary.availableBalanceRupees.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 34,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildMetricItem('Total Earned', '₹${summary.totalEarnedRupees.toStringAsFixed(2)}'),
+                          _buildMetricItem('Pending Clearance', '₹${summary.pendingBalanceRupees.toStringAsFixed(2)}'),
+                          _buildMetricItem('Paid Out', '₹${summary.paidOutBalanceRupees.toStringAsFixed(2)}'),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (summary.availableBalanceRupees >= 100)
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () => _showWithdrawalDialog(context, ref, summary),
+                            icon: const Icon(Icons.arrow_circle_up, size: 18),
+                            label: const Text('Request Payout Withdrawal'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFF59E0B),
+                              foregroundColor: const Color(0xFF0F172A),
+                              textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
                           ),
                         ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Color(0xFFF59E0B), size: 16),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Daily settlement ledger is managed authoritatively by the backend server. Payouts credit to verified bank account.',
+                                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Commission & Transparency Banner
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.shield_outlined, color: Color(0xFF059669), size: 24),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Backend Authoritative Settlements',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF065F46)),
+                            ),
+                            Text(
+                              'Payouts are credited directly upon job completion. Platform fee and TDS are computed authoritatively on the server.',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF047857)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                const Text(
+                  'Settlement History',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                ),
+                const SizedBox(height: 12),
+
+                if (summary.recentLedger.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: const Column(
+                      children: [
+                        Icon(Icons.receipt_long, size: 40, color: Color(0xFFCBD5E1)),
+                        SizedBox(height: 12),
                         Text(
-                          'Fee: -₹${(item['fee'] as double).toStringAsFixed(0)}',
-                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                          'No settled payouts yet',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF0F172A)),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Completed job earnings will appear here once payment is confirmed.',
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
-                  ],
+                  )
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: summary.recentLedger.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (ctx, idx) {
+                      final entry = summary.recentLedger[idx];
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    entry.serviceTitle,
+                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: entry.status == 'SETTLED'
+                                        ? const Color(0xFFECFDF5)
+                                        : const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    entry.status,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: entry.status == 'SETTLED'
+                                          ? const Color(0xFF047857)
+                                          : const Color(0xFFB45309),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Gross: ₹${entry.grossRupees.toStringAsFixed(2)} • Fee: -₹${entry.feeRupees.toStringAsFixed(2)}',
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                ),
+                                Text(
+                                  'Net: ₹${entry.netRupees.toStringAsFixed(2)}',
+                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showWithdrawalDialog(BuildContext context, WidgetRef ref, WalletSummary summary) {
+    final amountController = TextEditingController(text: summary.availableBalanceRupees.toStringAsFixed(0));
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Withdraw Payout', style: TextStyle(fontWeight: FontWeight.w700)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Available to withdraw: ₹${summary.availableBalanceRupees.toStringAsFixed(2)}',
+                style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0F172A), fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Withdrawal Amount (₹)',
+                  prefixText: '₹ ',
+                  border: OutlineInputBorder(),
+                  helperText: 'Minimum withdrawal: ₹100',
                 ),
-              );
-            }),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Notice: Funds will be transferred directly to your verified bank account on file.',
+                style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final parsed = double.tryParse(amountController.text.trim());
+                      if (parsed == null || parsed < 100) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Minimum withdrawal amount is ₹100.')),
+                        );
+                        return;
+                      }
+
+                      if (parsed > summary.availableBalanceRupees) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Amount exceeds available wallet balance.')),
+                        );
+                        return;
+                      }
+
+                      setDialogState(() => isSubmitting = true);
+                      try {
+                        final repo = ref.read(walletRepositoryProvider);
+                        final paisa = (parsed * 100).round();
+                        await repo.requestPayout(amountPaisa: paisa);
+                        if (context.mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Withdrawal request submitted for processing!'),
+                              backgroundColor: Color(0xFF10B981),
+                            ),
+                          );
+                          ref.refresh(walletSummaryFutureProvider);
+                        }
+                      } catch (e) {
+                        setDialogState(() => isSubmitting = false);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Withdrawal failed: $e'), backgroundColor: Colors.redAccent),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F172A),
+                foregroundColor: Colors.white,
+              ),
+              child: isSubmitting
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Confirm Transfer'),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMetricItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+      ],
     );
   }
 }

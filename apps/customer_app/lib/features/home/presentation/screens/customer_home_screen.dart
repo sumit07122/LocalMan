@@ -1,139 +1,169 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/empty_state_view.dart';
+import '../../../../shared/widgets/error_view.dart';
+import '../../addresses/presentation/controllers/address_provider.dart';
+import '../../auth/presentation/controllers/auth_provider.dart';
+import '../../services/domain/category.dart';
+import '../../services/presentation/controllers/catalog_providers.dart';
 
-class CustomerHomeScreen extends StatelessWidget {
+class CustomerHomeScreen extends ConsumerWidget {
   const CustomerHomeScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    final categories = [
-      {'name': 'Plumbing', 'icon': Icons.plumbing, 'color': Colors.blue},
-      {'name': 'Electrician', 'icon': Icons.bolt, 'color': Colors.amber},
-      {'name': 'AC & Appliance', 'icon': Icons.ac_unit, 'color': Colors.cyan},
-      {'name': 'Cleaning', 'icon': Icons.cleaning_services, 'color': Colors.teal},
-      {'name': 'Carpentry', 'icon': Icons.carpenter, 'color': Colors.brown},
-      {'name': 'Pest Control', 'icon': Icons.pest_control, 'color': Colors.green},
-      {'name': 'Painting', 'icon': Icons.format_paint, 'color': Colors.deepOrange},
-      {'name': 'Packers', 'icon': Icons.local_shipping, 'color': Colors.indigo},
+  IconData _getCategoryIcon(String? icon, String slug) {
+    if (slug.contains('plumb')) return Icons.plumbing;
+    if (slug.contains('electr')) return Icons.bolt;
+    if (slug.contains('clean')) return Icons.cleaning_services;
+    if (slug.contains('ac') || slug.contains('appliance')) return Icons.ac_unit;
+    if (slug.contains('carpen')) return Icons.carpenter;
+    if (slug.contains('paint')) return Icons.format_paint;
+    if (slug.contains('pest')) return Icons.pest_control;
+    if (slug.contains('pack') || slug.contains('mov')) return Icons.local_shipping;
+    return Icons.build_outlined;
+  }
+
+  Color _getCategoryColor(int index) {
+    const colors = [
+      Color(0xFF2563EB),
+      Color(0xFFD97706),
+      Color(0xFF0284C7),
+      Color(0xFF0D9488),
+      Color(0xFF78350F),
+      Color(0xFF16A34A),
+      Color(0xFFEA580C),
+      Color(0xFF4F46E5),
     ];
+    return colors[index % colors.length];
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final addressState = ref.watch(addressProvider);
+    final selectedAddress =
+        addressState.selectedAddress ?? addressState.defaultAddress;
+    final categoriesAsync = ref.watch(categoriesFutureProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        title: InkWell(
+          onTap: () => context.push('/addresses'),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.location_on, color: AppTheme.brandAccent, size: 18),
-                const SizedBox(width: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.location_on,
+                        color: AppTheme.brandAccent, size: 18),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        selectedAddress != null
+                            ? '${selectedAddress.label} • ${selectedAddress.city}'
+                            : 'Select Delivery Address',
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.brandPrimary,
+                            ),
+                      ),
+                    ),
+                    const Icon(Icons.keyboard_arrow_down,
+                        size: 18, color: Colors.grey),
+                  ],
+                ),
                 Text(
-                  'Indiranagar, Bengaluru',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                  selectedAddress != null
+                      ? selectedAddress.addressLine1
+                      : 'Tap to add or choose your address',
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
                       ),
                 ),
-                const Icon(Icons.keyboard_arrow_down, size: 18),
               ],
             ),
-            Text(
-              '560038 • Karnataka',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-            ),
-          ],
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.account_circle_outlined, size: 28),
-            onPressed: () => context.push('/login'),
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: 'My Bookings',
+            onPressed: () => context.push('/bookings'),
           ),
-          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.account_circle_outlined, size: 26),
+            tooltip: 'Profile',
+            onPressed: () {
+              if (authState.isAuthenticated) {
+                context.push('/profile');
+              } else {
+                context.push('/login');
+              }
+            },
+          ),
+          const SizedBox(width: 4),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Search Bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search, color: Colors.grey.shade500),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Search for "AC Jet Clean", "Electrician"...',
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Active Job Banner (If any active)
-              InkWell(
-                onTap: () => context.push('/booking/track/bkg_001'),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(categoriesFutureProvider);
+          await ref.read(categoriesFutureProvider.future);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Primary Customer Hero Banner: "What do you need done?"
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.12),
+                        color: const Color(0xFF0F172A).withOpacity(0.15),
                         blurRadius: 12,
                         offset: const Offset(0, 6),
                       ),
                     ],
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppTheme.brandAccent.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.engineering, color: AppTheme.brandAccent, size: 28),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.brandAccent.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.greenAccent,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                const Text(
-                                  'ACTIVE BOOKING IN PROGRESS',
+                                Icon(Icons.verified,
+                                    color: AppTheme.brandAccent, size: 14),
+                                SizedBox(width: 4),
+                                Text(
+                                  'VERIFIED LOCAL EXPERTS',
                                   style: TextStyle(
                                     color: AppTheme.brandAccent,
                                     fontSize: 10,
@@ -143,187 +173,269 @@ class CustomerHomeScreen extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Split AC Deep Jet Service',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Start OTP: 482910 • Tap to track pro',
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 16),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Categories Header
-              Text(
-                'Explore Everyday Services',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Verified professionals, transparent upfront pricing',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Categories Grid
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.8,
-                ),
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final cat = categories[index];
-                  return Column(
-                    children: [
-                      Container(
-                        width: 58,
-                        height: 58,
-                        decoration: BoxDecoration(
-                          color: (cat['color'] as Color).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: (cat['color'] as Color).withOpacity(0.2),
                           ),
-                        ),
-                        child: Icon(
-                          cat['icon'] as IconData,
-                          color: cat['color'] as Color,
-                          size: 28,
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'What do you\nneed done?',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          height: 1.15,
+                          letterSpacing: -0.5,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        cat['name'] as String,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                        'Book trusted home service professionals in minutes with upfront pricing and zero hidden fees.',
+                        style: TextStyle(
+                            color: Colors.grey.shade300,
+                            fontSize: 13,
+                            height: 1.4),
+                      ),
+                      const SizedBox(height: 18),
+
+                      // Interactive Search Trigger Bar -> routes to /search
+                      InkWell(
+                        onTap: () => context.push('/search'),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.search,
+                                  color: Colors.grey, size: 22),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Search plumbing, cleaning, AC service...',
+                                style: TextStyle(
+                                    color: Colors.grey.shade500, fontSize: 14),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
-                  );
-                },
-              ),
+                  ),
+                ),
 
-              const SizedBox(height: 24),
+                const SizedBox(height: 24),
 
-              // Popular Packages
-              Text(
-                'Most Booked in Bengaluru',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                // Categories Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Explore Services',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.brandPrimary,
+                          ),
                     ),
-              ),
-              const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () => context.push('/search'),
+                      child: const Text('All Services'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
 
-              _buildPopularCard(
-                title: 'Tap & Shower Fitting Repair',
-                price: '₹199',
-                duration: '45 mins',
-                rating: '4.8 ★ (1,240)',
-                imageUrl: 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=300&auto=format&fit=crop',
-              ),
-              const SizedBox(height: 12),
-              _buildPopularCard(
-                title: 'High-Pressure AC Foam Jet Clean',
-                price: '₹499',
-                duration: '60 mins',
-                rating: '4.9 ★ (3,190)',
-                imageUrl: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=300&auto=format&fit=crop',
-              ),
-            ],
+                // Authoritative Category Grid from Backend
+                categoriesAsync.when(
+                  loading: () => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32.0),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppTheme.brandAccent,
+                        strokeWidth: 3,
+                      ),
+                    ),
+                  ),
+                  error: (err, _) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                    child: ErrorView(
+                      message:
+                          'Unable to load service categories. Please try again.',
+                      onRetry: () => ref.refresh(categoriesFutureProvider),
+                    ),
+                  ),
+                  data: (categories) {
+                    if (categories.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.0),
+                        child: EmptyStateView(
+                          icon: Icons.category_outlined,
+                          title: 'No Categories Available',
+                          message:
+                              'Service catalog is being updated. Please check back shortly.',
+                        ),
+                      );
+                    }
+
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: categories.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        mainAxisSpacing: 14,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 0.82,
+                      ),
+                      itemBuilder: (context, index) {
+                        final cat = categories[index];
+                        final color = _getCategoryColor(index);
+                        final icon = _getCategoryIcon(cat.icon, cat.slug);
+
+                        return InkWell(
+                          onTap: () => context.push('/category/${cat.id}'),
+                          borderRadius: BorderRadius.circular(14),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: color.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border:
+                                      Border.all(color: color.withOpacity(0.2)),
+                                ),
+                                child: Icon(
+                                  icon,
+                                  color: color,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                cat.name,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.brandPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 24),
+
+                // Trust & Safety Highlights
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.shield_outlined,
+                              color: AppTheme.brandPrimary, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'The LocalMan Promise',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.brandPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const _PromiseItem(
+                        icon: Icons.badge_outlined,
+                        title: 'Police & Aadhaar-Verified Pros',
+                        desc:
+                            'Every service provider is strictly background-verified.',
+                      ),
+                      const Divider(height: 16),
+                      const _PromiseItem(
+                        icon: Icons.currency_rupee,
+                        title: 'Transparent Pricing Guarantee',
+                        desc:
+                            'No sudden surges. Material approval requires your direct authorization.',
+                      ),
+                      const Divider(height: 16),
+                      const _PromiseItem(
+                        icon: Icons.lock_outline,
+                        title: 'Secure OTP-Guarded Job Start',
+                        desc:
+                            'Job begins only when you share the unique 6-digit start code with the pro.',
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildPopularCard({
-    required String title,
-    required String price,
-    required String duration,
-    required String rating,
-    required String imageUrl,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              imageUrl,
-              width: 72,
-              height: 72,
-              fit: BoxFit.cover,
-            ),
+class _PromiseItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String desc;
+
+  const _PromiseItem({
+    required this.icon,
+    required this.title,
+    required this.desc,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: Colors.grey.shade700),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                desc,
+                style: TextStyle(
+                    color: Colors.grey.shade600, fontSize: 12, height: 1.3),
+              ),
+            ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$duration • $rating',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  price,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                    color: AppTheme.brandPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              minimumSize: const Size(60, 36),
-            ),
-            child: const Text('Book'),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

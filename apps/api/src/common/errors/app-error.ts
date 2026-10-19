@@ -13,6 +13,12 @@ export class AppError extends Error {
   }
 }
 
+export class BadRequestError extends AppError {
+  constructor(message = 'Bad request', details?: unknown) {
+    super(message, 400, 'BAD_REQUEST', details);
+  }
+}
+
 export class NotFoundError extends AppError {
   constructor(message = 'Resource not found', code = 'NOT_FOUND') {
     super(message, 404, code);
@@ -48,3 +54,10 @@ export class InvalidStateTransitionError extends AppError {
     super(message, 400, 'INVALID_STATE_TRANSITION', details);
   }
 }
+
+export class TooManyRequestsError extends AppError {
+  constructor(message = 'Too many requests, please try again later', details?: unknown) {
+    super(message, 429, 'TOO_MANY_REQUESTS', details);
+  }
+}
+

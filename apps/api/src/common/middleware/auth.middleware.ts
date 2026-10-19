@@ -11,7 +11,7 @@ export interface AuthenticatedUser {
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
-    payload: { userId: string; phoneNumber?: string; roles?: string[]; type?: string };
+    payload: { userId: string; phoneNumber?: string; roles?: string[]; type?: string; jti?: string };
     user: AuthenticatedUser;
   }
 }

@@ -28,6 +28,12 @@ export const RefreshTokenSchema = z.object({
 });
 export type RefreshTokenInput = z.infer<typeof RefreshTokenSchema>;
 
+export const RefreshTokenResponseSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
+});
+export type RefreshTokenResponse = z.infer<typeof RefreshTokenResponseSchema>;
+
 export const UpdateProfileSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string().email('Invalid email address').optional(),

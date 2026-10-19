@@ -9,11 +9,12 @@ import { env } from './config/env.js';
 import { globalErrorHandler } from './common/errors/error-handler.js';
 
 import { authRoutes } from './modules/auth/auth.routes.js';
-import { catalogRoutes } from './modules/catalog/catalog.routes.js';
+import { catalogRoutes, categoryRoutes, serviceRoutes } from './modules/catalog/catalog.routes.js';
 import { bookingRoutes } from './modules/bookings/booking.routes.js';
 import { providerRoutes } from './modules/providers/provider.routes.js';
 import { paymentRoutes } from './modules/payments/payment.routes.js';
 import { adminRoutes } from './modules/admin/admin.routes.js';
+import { addressRoutes } from './modules/addresses/address.routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -73,6 +74,9 @@ export async function buildApp(): Promise<FastifyInstance> {
       await api.register(providerRoutes, { prefix: '/providers' });
       await api.register(paymentRoutes, { prefix: '/payments' });
       await api.register(adminRoutes, { prefix: '/admin' });
+      await api.register(addressRoutes, { prefix: '/addresses' });
+      await api.register(categoryRoutes, { prefix: '/categories' });
+      await api.register(serviceRoutes, { prefix: '/services' });
     },
     { prefix: env.API_PREFIX }
   );

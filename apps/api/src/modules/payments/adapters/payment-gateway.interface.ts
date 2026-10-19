@@ -22,8 +22,15 @@ export interface RefundOptions {
   reason: string;
 }
 
+export interface VerifyPaymentOptions {
+  gatewayOrderId: string;
+  gatewayPaymentId: string;
+  gatewaySignature: string;
+}
+
 export interface PaymentGatewayAdapter {
   createOrder(options: CreateOrderOptions): Promise<OrderResult>;
+  verifyPaymentSignature(options: VerifyPaymentOptions): boolean;
   verifyWebhookSignature(rawBody: string, signature: string): boolean;
   processRefund(options: RefundOptions): Promise<{ gatewayRefundId: string }>;
 }

@@ -1,21 +1,23 @@
 import { FastifyInstance } from 'fastify';
-import { PaymentController } from './payment.controller.js';
+import { paymentController } from './payment.controller.js';
 import { authenticate } from '../../common/middleware/auth.middleware.js';
 import { requireRoles } from '../../common/middleware/rbac.middleware.js';
 
 export async function paymentRoutes(fastify: FastifyInstance) {
-  const controller = new PaymentController();
+  // Phase 3F Customer Checkout & Verification Endpoints
+  fastify.post('/checkout', { preHandler: [authenticate] }, paymentController.createCheckoutSession);
+  fastify.post('/verify', { preHandler: [authenticate] }, paymentController.verifyPayment);
+  fastify.post('/webhook', paymentController.handleWebhook);
+  fastify.get('/summary/:bookingId', { preHandler: [authenticate] }, paymentController.getPaymentSummary);
 
-  // Create order requires authentication (Customer)
-  fastify.post('/orders', { preHandler: [authenticate] }, controller.createOrder);
+  // Legacy / Phase 2D compatibility routes
+  fastify.post('/orders', { preHandler: [authenticate] }, paymentController.createOrder);
+  fastify.post('/confirm', paymentController.confirmPayment);
 
-  // Development / Webhook settlement handler
-  fastify.post('/confirm', controller.confirmPayment);
-
-  // Refund requires Admin role
+  // Admin-authorized refunds
   fastify.post(
     '/refunds',
     { preHandler: [authenticate, requireRoles(['ADMIN', 'FINANCE_MANAGER'])] },
-    controller.processRefund
+    paymentController.processRefund
   );
 }

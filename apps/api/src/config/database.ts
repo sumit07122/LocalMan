@@ -5,12 +5,16 @@ declare global {
   var __prisma: PrismaClient | undefined;
 }
 
-export const prisma =
-  globalThis.__prisma ||
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  });
+const defaultPrisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+});
 
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.__prisma = prisma;
-}
+export const prisma: PrismaClient = new Proxy(defaultPrisma, {
+  get(target, prop, receiver) {
+    if (globalThis.__prisma) {
+      return (globalThis.__prisma as any)[prop];
+    }
+    return Reflect.get(target, prop, receiver);
+  },
+});
+

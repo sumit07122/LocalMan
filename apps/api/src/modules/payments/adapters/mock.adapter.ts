@@ -16,8 +16,18 @@ export class MockPaymentAdapter implements PaymentGatewayAdapter {
     };
   }
 
+  verifyPaymentSignature(options: { gatewayOrderId: string; gatewayPaymentId: string; gatewaySignature: string }): boolean {
+    return Boolean(
+      options.gatewayPaymentId &&
+      options.gatewayOrderId &&
+      options.gatewaySignature &&
+      options.gatewaySignature !== 'invalid_signature' &&
+      options.gatewaySignature !== 'bad_signature'
+    );
+  }
+
   verifyWebhookSignature(_rawBody: string, signature: string): boolean {
-    return Boolean(signature && signature.length > 0);
+    return Boolean(signature && signature.length > 0 && signature !== 'invalid_signature' && signature !== 'bad_signature');
   }
 
   async processRefund(_options: RefundOptions): Promise<{ gatewayRefundId: string }> {

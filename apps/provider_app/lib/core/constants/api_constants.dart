@@ -1,26 +1,60 @@
+import '../config/env_config.dart';
+
 class ApiConstants {
-  // Set to local host / machine IP for Android Emulator (10.0.2.2) or iOS Simulator (localhost)
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:4000/api/v1',
-  );
+  static String get baseUrl => EnvConfig.baseUrl;
 
-  // Authentication
-  static const String sendOtp = '$baseUrl/auth/otp/send';
-  static const String verifyOtp = '$baseUrl/auth/otp/verify';
-  static const String refresh = '$baseUrl/auth/refresh';
-  static const String me = '$baseUrl/auth/me';
+  // Authentication endpoints
+  static String get sendOtp => '$baseUrl/auth/otp/send';
+  static String get verifyOtp => '$baseUrl/auth/otp/verify';
+  static String get refresh => '$baseUrl/auth/refresh';
+  static String get me => '$baseUrl/auth/me';
+  static String get logout => '$baseUrl/auth/logout';
 
-  // Provider Profile & KYC
-  static const String providerProfile = '$baseUrl/providers/profile';
-  static const String submitKyc = '$baseUrl/providers/kyc/document';
-  static const String toggleOnline = '$baseUrl/providers/toggle-online';
-  static const String locationBeacon = '$baseUrl/providers/location/beacon';
-  static const String updateAvailability = '$baseUrl/providers/availability';
+  // Provider profile & KYC
+  static String get providerProfile => '$baseUrl/providers/profile';
+  static String get submitKyc => '$baseUrl/providers/kyc/document';
+  static String get toggleOnline => '$baseUrl/providers/toggle-online';
+  static String get locationBeacon => '$baseUrl/providers/location/beacon';
+  static String get updateAvailability => '$baseUrl/providers/availability';
 
-  // Provider Bookings
-  static const String myBookings = '$baseUrl/bookings/provider/my';
-  static const String bookingDetails = '$baseUrl/bookings';
-  static const String updateStatus = '$baseUrl/bookings'; // PATCH /:id/status
-  static const String addMaterial = '$baseUrl/bookings';  // POST /:id/materials
+  // Provider Bookings (Phase 2A canonical endpoints)
+  static String get providerBookings => '$baseUrl/providers/bookings';
+  static String providerBookingDetails(String id) => '$baseUrl/providers/bookings/$id';
+  static String acceptBooking(String id) => '$baseUrl/providers/bookings/$id/accept';
+  static String rejectBooking(String id) => '$baseUrl/providers/bookings/$id/reject';
+
+  // Phase 2C & 2E: Job Execution & Wallet endpoints
+  static String updateJobStatus(String id) => '$baseUrl/providers/bookings/$id/job-status';
+  static String startTravel(String id) => '$baseUrl/providers/bookings/$id/on-the-way';
+  static String markArrived(String id) => '$baseUrl/providers/bookings/$id/arrived';
+  static String startJob(String id) => '$baseUrl/providers/bookings/$id/start';
+  static String completeJob(String id) => '$baseUrl/providers/bookings/$id/complete';
+  static String get providerWallet => '$baseUrl/providers/wallet';
+  static String get requestPayout => '$baseUrl/providers/wallet/payouts';
+  static String get providerLedger => '$baseUrl/providers/wallet/ledger';
+
+  // Phase 2F: Real-Time Marketplace Dispatch
+  static String get dispatchOffers => '$baseUrl/providers/dispatch/offers';
+  static String get activeDispatchOffer => '$baseUrl/providers/dispatch/offers/active';
+  static String acceptDispatchOffer(String id) => '$baseUrl/providers/dispatch/offers/$id/accept';
+  static String rejectDispatchOffer(String id) => '$baseUrl/providers/dispatch/offers/$id/reject';
+  static String get dispatchStream => '$baseUrl/providers/dispatch/stream';
+
+  // Legacy aliases
+  static String get myBookings => providerBookings;
+  static String bookingDetails(String id) => providerBookingDetails(id);
+  static String updateStatus(String id) => '$baseUrl/bookings/$id/status';
+  static String addMaterial(String id) => '$baseUrl/bookings/$id/materials';
+
+  // Phase 3H: Provider Quote Marketplace endpoints
+  static String submitQuote(String bookingId) => '$baseUrl/providers/bookings/$bookingId/quotes';
+  static String providerBookingQuotes(String bookingId) => '$baseUrl/providers/bookings/$bookingId/quotes';
+  static String updateQuote(String quoteId) => '$baseUrl/providers/quotes/$quoteId';
+  static String withdrawQuote(String quoteId) => '$baseUrl/providers/quotes/$quoteId/withdraw';
+
+  // Phase 3I: Provider Chat & Messaging endpoints
+  static String bookingConversation(String bookingId) => '$baseUrl/bookings/$bookingId/messages/conversation';
+  static String bookingMessages(String bookingId) => '$baseUrl/bookings/$bookingId/messages';
+  static String bookingMessageRead(String bookingId) => '$baseUrl/bookings/$bookingId/messages/read';
+  static String bookingMessageStream(String bookingId) => '$baseUrl/bookings/$bookingId/messages/stream';
 }
