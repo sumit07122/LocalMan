@@ -1,6 +1,23 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app.js';
 import { env } from './config/env.js';
 import { prisma } from './config/database.js';
+
+let appInstance: FastifyInstance | null = null;
+
+export async function getApp(): Promise<FastifyInstance> {
+  if (!appInstance) {
+    appInstance = await buildApp();
+    await appInstance.ready();
+  }
+  return appInstance;
+}
+
+export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const app = await getApp();
+  app.server.emit('request', req, res);
+}
 
 async function start() {
   const app = await buildApp();
@@ -35,4 +52,9 @@ async function start() {
   }
 }
 
-start();
+// In local execution / non-serverless environments, start the standalone HTTP listener.
+// On Vercel, requests are dispatched directly to the exported default handler.
+if (!process.env.VERCEL) {
+  start();
+}
+
