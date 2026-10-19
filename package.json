@@ -9,6 +9,8 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "build:packages": "npm run build --workspace=@localman/constants --workspace=@localman/contracts --workspace=@localman/design-tokens",
+    "postinstall": "npm run build:packages && npm run db:generate --workspace=@localman/api",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "dev:api": "npm run dev --workspace=@localman/api",

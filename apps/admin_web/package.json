@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prebuild": "npm run build --workspace=@localman/constants --workspace=@localman/design-tokens",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"

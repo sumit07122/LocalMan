@@ -5,7 +5,8 @@
   "type": "module",
   "main": "./dist/server.js",
   "scripts": {
-    "build": "tsc",
+    "prebuild": "npm run build --workspace=@localman/constants --workspace=@localman/contracts",
+    "build": "prisma generate && tsc",
     "clean": "rimraf dist",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
