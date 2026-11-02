@@ -1274,9 +1274,9 @@ export function App() {
             <div className="card" style={{ padding: '28px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
-                  <h2 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Service Catalog & Marketplace Take-Rates</h2>
+                  <h2 style={{ fontSize: '1.125rem', fontWeight: 700 }}>Service Catalog & Take-Rate Yield Simulator</h2>
                   <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                    Category base rates, pricing models, and commission configurations across city clusters.
+                    Category base rates, pricing models, and simulation sandbox for cluster yield planning. Canonical platform commission is enforced server-side at 15.0% (Section 194O TDS 1.0%).
                   </p>
                 </div>
                 {commissionSavedAlert && (
@@ -1293,7 +1293,7 @@ export function App() {
                       gap: '6px',
                     }}
                   >
-                    <Check size={16} /> Commission settings updated successfully!
+                    <Check size={16} /> Yield simulation updated. Canonical 15.0% platform commission enforced server-side.
                   </div>
                 )}
               </div>
@@ -1430,7 +1430,7 @@ export function App() {
 
               <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
                 <button onClick={handleSaveCommission} className="btn-primary">
-                  Save Commission Policies
+                  Update Yield Simulation
                 </button>
               </div>
             </div>

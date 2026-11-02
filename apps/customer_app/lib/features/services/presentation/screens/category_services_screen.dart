@@ -269,6 +269,8 @@ class _ServiceListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final description = service.description;
+    final duration = service.formattedDuration;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -300,11 +302,10 @@ class _ServiceListCard extends StatelessWidget {
                             color: AppTheme.brandPrimary,
                           ),
                         ),
-                        if (service.description != null &&
-                            service.description!.isNotEmpty) ...[
+                        if (description != null && description.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
-                            service.description!,
+                            description,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -369,7 +370,7 @@ class _ServiceListCard extends StatelessWidget {
                   ),
 
                   // Estimated Duration
-                  if (service.formattedDuration != null)
+                  if (duration != null && duration.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
@@ -384,7 +385,7 @@ class _ServiceListCard extends StatelessWidget {
                               size: 12, color: Colors.grey.shade600),
                           const SizedBox(width: 4),
                           Text(
-                            service.formattedDuration!,
+                            duration,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,

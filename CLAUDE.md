@@ -12,7 +12,7 @@ Goal: secure, production-ready marketplace (not a prototype).
 
 ## 2. Repository
 - GitHub: https://github.com/sumit07122/LocalMan
-- Work on **`develop`** (default branch on GitHub is `master`). Baseline commit audited: `c67e921` (Phase 4E UI/UX redesign).
+- Work on **`develop`** (default branch on GitHub is `master`). Baseline commit audited: `c67e921` (Phase 4E UI/UX redesign) stabilized in Phase 4F.
 - npm-workspaces monorepo (`packages/*`, `apps/*`):
 
 | Path | Purpose |
@@ -26,7 +26,7 @@ Goal: secure, production-ready marketplace (not a prototype).
 | `packages/design_tokens` | Shared design tokens |
 | `docs/` | Architecture, audits, phase reports, runbooks |
 | `scripts/` | dev-all, local DB, preview server, secret audit |
-| `.github/workflows` | `ci.yml` (backend, admin, flutter, staging APKs on develop), `android-distribution.yml` |
+| `.github/workflows` | `ci.yml` (backend-ci, admin-web-ci, customer-flutter-ci, provider-flutter-ci, staging APKs guarded by `STAGING_API_BASE_URL`), `android-distribution.yml` |
 | `render.yaml`, `vercel.json` | Planned hosting (API on Render, Admin on Vercel) — **not deployed without owner approval** |
 
 Prisma: 34 models, 9 migrations (`apps/api/prisma`). API tests: 26 files in `apps/api/test` (node `--test` via tsx, `--test-concurrency=1`).
@@ -89,3 +89,11 @@ CI test env uses mock providers: `STORAGE_PROVIDER=mock SMS_GATEWAY_PROVIDER=moc
 - 2026-11-02: Fixed P0 Customer Flutter analyzer errors (nullable `formattedDuration`). Both Customer and Provider apps now pass `flutter analyze --no-fatal-infos` with exit code 0.
 - 2026-11-02: Consolidated P1 fee math into `FinancialService.calculatePlatformFee` and `FinancialService.deriveBookingPricing`, eliminating duplicated inline calculations across `booking.service.ts` and `quote.service.ts`.
 - 2026-11-02: Tightened `scripts/audit-secrets.js` to eliminate false positives on Git commit hashes and Flutter revisions.
+- 2026-11-03: Phase 4F Engineering Baseline & CI Stabilization complete:
+  - Fixed Customer App analysis failures across 4 files without force unwraps (`!`).
+  - Verified both Customer (107/107) and Provider (31/31) test suites pass cleanly.
+  - Decoupled mobile CI into `customer-flutter-ci` and `provider-flutter-ci` in `.github/workflows/ci.yml`.
+  - Added staging environment guard in CI (`vars.STAGING_API_BASE_URL`) to prevent building non-functional APKs with dummy URLs.
+  - Audited Admin Catalog take-rate slider: renamed to "Service Catalog & Take-Rate Yield Simulator", added explicit 15% platform commission / 1% TDS server authority notes.
+  - Audited Android release configurations, package IDs, SDK levels, and safe QA signing workflows via GitHub Secrets.
+  - Generated `docs/PHASE_4F_ENGINEERING_BASELINE_REPORT.md`.

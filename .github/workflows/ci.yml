@@ -118,10 +118,10 @@ jobs:
       - name: Typecheck and Build Admin Web (Vite)
         run: npm run build --workspace=@localman/admin-web
 
-  mobile-apps-ci:
-    name: Flutter Mobile Apps CI (Customer & Provider)
+  customer-flutter-ci:
+    name: Customer Flutter App CI
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     steps:
       - name: Checkout Repository
@@ -152,22 +152,10 @@ jobs:
         working-directory: apps/customer_app
         run: flutter test
 
-      - name: Provider App — Pub Get & Analyze
-        working-directory: apps/provider_app
-        run: |
-          flutter pub get
-          flutter analyze --no-fatal-infos
-
-      - name: Provider App — Unit & Widget Tests
-        working-directory: apps/provider_app
-        run: flutter test
-
-  build-staging-apks:
-    name: Build Staging Android APKs (Customer & Provider)
-    needs: [backend-ci, admin-web-ci, mobile-apps-ci]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+  provider-flutter-ci:
+    name: Provider Flutter App CI
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     steps:
       - name: Checkout Repository
@@ -185,23 +173,77 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Verify Flutter Installation
+        run: flutter --version
+
+      - name: Provider App — Pub Get & Analyze
+        working-directory: apps/provider_app
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-infos
+
+      - name: Provider App — Unit & Widget Tests
+        working-directory: apps/provider_app
+        run: flutter test
+
+  build-staging-apks:
+    name: Build Staging Android APKs (Customer & Provider)
+    needs: [backend-ci, admin-web-ci, customer-flutter-ci, provider-flutter-ci]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Validate Staging Environment Configuration
+        id: check-staging-config
+        run: |
+          STAGING_URL="${{ vars.STAGING_API_BASE_URL }}"
+          if [ -z "$STAGING_URL" ] || [ "$STAGING_URL" = "null" ] || [[ "$STAGING_URL" == *"example.com"* ]] || [[ "$STAGING_URL" == *"placeholder"* ]]; then
+            echo "::notice title=Staging APK Build Skipped::STAGING_API_BASE_URL repository variable is not configured or contains a placeholder. Staging APK generation is safely skipped until a real staging backend is provisioned."
+            echo "skip_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "STAGING_API_BASE_URL is configured: $STAGING_URL"
+            echo "skip_build=false" >> $GITHUB_OUTPUT
+            echo "staging_url=$STAGING_URL" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Java 17
+        if: steps.check-staging-config.outputs.skip_build != 'true'
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4.7.0
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter Stable
+        if: steps.check-staging-config.outputs.skip_build != 'true'
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: 'stable'
+          cache: true
+
       - name: Customer App — Build Staging APK
+        if: steps.check-staging-config.outputs.skip_build != 'true'
         working-directory: apps/customer_app
         run: |
           flutter pub get
           flutter build apk --release \
-            --dart-define=API_BASE_URL="https://api-staging.localman.in/api/v1" \
+            --dart-define=API_BASE_URL="${{ steps.check-staging-config.outputs.staging_url }}" \
             --dart-define=ENV="staging"
 
       - name: Provider App — Build Staging APK
+        if: steps.check-staging-config.outputs.skip_build != 'true'
         working-directory: apps/provider_app
         run: |
           flutter pub get
           flutter build apk --release \
-            --dart-define=API_BASE_URL="https://api-staging.localman.in/api/v1" \
+            --dart-define=API_BASE_URL="${{ steps.check-staging-config.outputs.staging_url }}" \
             --dart-define=ENV="staging"
 
       - name: Package Staging APKs
+        if: steps.check-staging-config.outputs.skip_build != 'true'
         run: |
           mkdir -p dist/apks
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
@@ -212,6 +254,7 @@ jobs:
           cp apps/provider_app/build/app/outputs/flutter-apk/app-release.apk "dist/apks/localman-provider-staging-latest.apk"
 
       - name: Upload Staging APKs Artifact
+        if: steps.check-staging-config.outputs.skip_build != 'true'
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: localman-staging-apks-b${{ github.run_number }}

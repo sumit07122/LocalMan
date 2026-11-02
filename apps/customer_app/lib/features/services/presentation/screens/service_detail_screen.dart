@@ -53,6 +53,7 @@ class ServiceDetailScreen extends ConsumerWidget {
           onRetry: () => ref.refresh(serviceDetailProvider(serviceId)),
         ),
         data: (service) {
+          final duration = service.formattedDuration;
           return Column(
             children: [
               Expanded(
@@ -84,7 +85,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  service.category!.name,
+                                  service.category?.name ?? '',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -113,7 +114,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                       // Quick Attributes (Duration & Model Badges)
                       Row(
                         children: [
-                          if (service.formattedDuration != null) ...[
+                          if (duration != null && duration.isNotEmpty) ...[
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 5),
@@ -128,7 +129,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                                       size: 14, color: Colors.grey.shade700),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'Est. ${service.formattedDuration!}',
+                                    'Est. $duration',
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,

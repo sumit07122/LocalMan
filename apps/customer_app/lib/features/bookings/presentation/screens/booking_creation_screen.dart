@@ -324,6 +324,7 @@ class _ServiceOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final duration = service.formattedDuration;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -381,7 +382,7 @@ class _ServiceOverviewCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (service.formattedDuration != null)
+                    if (duration != null && duration.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
@@ -390,7 +391,7 @@ class _ServiceOverviewCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          '⏱ ${service.formattedDuration!}',
+                          '⏱ $duration',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,

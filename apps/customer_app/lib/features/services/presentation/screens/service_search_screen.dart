@@ -317,6 +317,8 @@ class _SearchResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final description = service.description;
+    final duration = service.formattedDuration;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -348,11 +350,10 @@ class _SearchResultCard extends StatelessWidget {
                             color: AppTheme.brandPrimary,
                           ),
                         ),
-                        if (service.description != null &&
-                            service.description!.isNotEmpty) ...[
+                        if (description != null && description.isNotEmpty) ...[
                           const SizedBox(height: 3),
                           Text(
-                            service.description!,
+                            description,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -411,7 +412,7 @@ class _SearchResultCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (service.formattedDuration != null)
+                  if (duration != null && duration.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
@@ -420,7 +421,7 @@ class _SearchResultCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        service.formattedDuration!,
+                        duration,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
