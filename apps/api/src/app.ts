@@ -51,7 +51,11 @@ export async function buildApp(): Promise<FastifyInstance> {
         cb(null, true);
         return;
       }
-      if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      if (
+        allowedOrigins.includes(origin) ||
+        allowedOrigins.includes('*') ||
+        (origin.endsWith('.vercel.app') && allowedOrigins.some((a) => a.includes('vercel.app')))
+      ) {
         cb(null, true);
         return;
       }

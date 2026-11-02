@@ -126,3 +126,9 @@ CI test env uses mock providers: `STORAGE_PROVIDER=mock SMS_GATEWAY_PROVIDER=moc
   - Saved binaries to local git-ignored folder `release-apks/qa-release-phase-4h/` with computed SHA-256 hashes.
   - Documented physical device installation via ADB and LAN reverse port forwarding.
   - Generated `docs/PHASE_4H_ANDROID_DEVICE_QA_REPORT.md`.
+- 2026-11-03: Phase 4I Cloud Staging Deployment complete:
+  - Audited and updated `render.yaml` for Fastify API + PostgreSQL 16 PostGIS in Singapore region targeting `develop` branch.
+  - Replaced outdated serverless root `vercel.json` with dedicated `@localman/admin-web` Vite SPA deployment configuration with strict security headers.
+  - Enhanced CORS in `app.ts` to dynamically allow Vercel staging preview domains (`*.vercel.app`).
+  - Created step-by-step owner deployment runbook with cost/billing breakdown ($14/mo) and zero committed secrets.
+  - Generated `docs/PHASE_4I_STAGING_DEPLOYMENT_REPORT.md`.
