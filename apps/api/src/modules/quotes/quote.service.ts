@@ -614,7 +614,7 @@ export class QuoteService {
           FinancialService.DEFAULT_COMMISSION_PERCENT;
 
         const baseAmountPaisa = targetQuote.subtotalPaisa || targetQuote.quoteAmountPaisa;
-        const platformFeePaisa = Math.round((baseAmountPaisa * platformCommissionPercent) / 100);
+        const platformFeePaisa = FinancialService.calculatePlatformFee(baseAmountPaisa, platformCommissionPercent);
         const totalAmountPaisa = targetQuote.quoteAmountPaisa;
         const providerEarningPaisa = Math.max(0, totalAmountPaisa - platformFeePaisa);
 

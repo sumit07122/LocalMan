@@ -22,6 +22,7 @@ import { BookingOtpService } from './booking-otp.service.js';
 import { AuthenticatedUser } from '../../common/middleware/auth.middleware.js';
 import { dispatchService } from '../dispatch/dispatch.service.js';
 import { realtimeService } from '../realtime/realtime.service.js';
+import { FinancialService } from '../financial/financial.service.js';
 
 export class BookingService {
   /**
@@ -127,51 +128,43 @@ export class BookingService {
 
     // 6. Pricing Model & Authoritative Financial Derivation
     let baseAmountPaisa = 0;
-    let platformFeePaisa = 0;
-    let taxAmountPaisa = 0;
-    let totalAmountPaisa = 0;
-    let providerEarningPaisa = 0;
-    const platformCommissionPercent = Number(service.platformCommissionPercent || 15.0);
-    const gstRatePercent = 18.0;
+    const platformCommissionPercent = Number(
+      service.platformCommissionPercent || FinancialService.DEFAULT_COMMISSION_PERCENT
+    );
 
     switch (input.pricingModel) {
       case 'FIXED_PRICE': {
         baseAmountPaisa = service.basePricePaisa;
-        platformFeePaisa = Math.round((baseAmountPaisa * platformCommissionPercent) / 100);
-        taxAmountPaisa = Math.round((baseAmountPaisa * gstRatePercent) / 100);
-        totalAmountPaisa = baseAmountPaisa + taxAmountPaisa;
-        providerEarningPaisa = baseAmountPaisa - platformFeePaisa;
         break;
       }
       case 'HOURLY': {
         const hours = Math.max(1, Math.round(input.hours || 1));
         const hourlyRate = service.hourlyRatePaisa || service.basePricePaisa;
         baseAmountPaisa = hourlyRate * hours;
-        platformFeePaisa = Math.round((baseAmountPaisa * platformCommissionPercent) / 100);
-        taxAmountPaisa = Math.round((baseAmountPaisa * gstRatePercent) / 100);
-        totalAmountPaisa = baseAmountPaisa + taxAmountPaisa;
-        providerEarningPaisa = baseAmountPaisa - platformFeePaisa;
         break;
       }
       case 'INSPECTION_QUOTE': {
         baseAmountPaisa = service.inspectionFeePaisa || 0;
-        platformFeePaisa = Math.round((baseAmountPaisa * platformCommissionPercent) / 100);
-        taxAmountPaisa = Math.round((baseAmountPaisa * gstRatePercent) / 100);
-        totalAmountPaisa = baseAmountPaisa + taxAmountPaisa;
-        providerEarningPaisa = baseAmountPaisa - platformFeePaisa;
         break;
       }
       case 'CUSTOM_QUOTE': {
         baseAmountPaisa = 0;
-        platformFeePaisa = 0;
-        taxAmountPaisa = 0;
-        totalAmountPaisa = 0;
-        providerEarningPaisa = 0;
         break;
       }
       default:
         throw new ValidationError(`Unsupported pricing model: ${input.pricingModel}`);
     }
+
+    const {
+      platformFeePaisa,
+      taxAmountPaisa,
+      totalAmountPaisa,
+      providerEarningPaisa,
+      gstRatePercent,
+    } = FinancialService.deriveBookingPricing({
+      baseAmountPaisa,
+      platformCommissionPercent,
+    });
 
     // 7. Snapshots for Historical Truth Preservation
     const addressSnapshot = {

@@ -369,7 +369,7 @@ class _ServiceListCard extends StatelessWidget {
                   ),
 
                   // Estimated Duration
-                  if (service.formattedDuration.isNotEmpty)
+                  if (service.formattedDuration != null)
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
@@ -384,7 +384,7 @@ class _ServiceListCard extends StatelessWidget {
                               size: 12, color: Colors.grey.shade600),
                           const SizedBox(width: 4),
                           Text(
-                            service.formattedDuration,
+                            service.formattedDuration!,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,

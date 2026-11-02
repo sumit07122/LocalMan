@@ -113,7 +113,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                       // Quick Attributes (Duration & Model Badges)
                       Row(
                         children: [
-                          if (service.formattedDuration.isNotEmpty) ...[
+                          if (service.formattedDuration != null) ...[
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 5),
@@ -128,7 +128,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                                       size: 14, color: Colors.grey.shade700),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'Est. ${service.formattedDuration}',
+                                    'Est. ${service.formattedDuration!}',
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,

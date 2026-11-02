@@ -411,7 +411,7 @@ class _SearchResultCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (service.formattedDuration.isNotEmpty)
+                  if (service.formattedDuration != null)
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
@@ -420,7 +420,7 @@ class _SearchResultCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        service.formattedDuration,
+                        service.formattedDuration!,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,

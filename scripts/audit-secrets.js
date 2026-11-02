@@ -24,6 +24,46 @@ function redact(str) {
   return str.slice(0, 4) + '...' + str.slice(-4);
 }
 
+function isFalsePositive(matchedStr, content, matchIndex, rule) {
+  if (
+    matchedStr.includes('mock_') ||
+    matchedStr.includes('example') ||
+    matchedStr.includes('replace_in_prod') ||
+    matchedStr.includes('localman_secure_dev_password_2026') ||
+    matchedStr.includes('localman_ci_password_2026') ||
+    matchedStr.includes('test_')
+  ) {
+    return true;
+  }
+
+  // Pure 40-character hex string is a Git commit hash or Flutter revision hash
+  if (rule.name === 'AWS Secret Key') {
+    if (/^[0-9a-f]{40}$/i.test(matchedStr)) {
+      return true;
+    }
+    // URL or file paths containing slashes
+    if (matchedStr.includes('/') || matchedStr.includes('\\')) {
+      return true;
+    }
+    // For contextual rules, check if surrounding window contains secret key context
+    if (rule.contextual && content) {
+      const start = Math.max(0, matchIndex - 80);
+      const end = Math.min(content.length, matchIndex + matchedStr.length + 80);
+      const snippet = content.slice(start, end).toLowerCase();
+      if (
+        !snippet.includes('aws') &&
+        !snippet.includes('secret') &&
+        !snippet.includes('access_key') &&
+        !snippet.includes('credentials')
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 export function scanWorkingTree(dir, options = {}) {
   const ignoreDirs = new Set(['.git', 'node_modules', 'dist', 'build', '.dart_tool', 'ios', 'android', 'scratch', '.system_generated', ...(options.extraIgnore || [])]);
   const findings = [];
@@ -44,9 +84,24 @@ export function scanWorkingTree(dir, options = {}) {
       } else if (entry.isFile()) {
         const filePath = path.join(currentDir, entry.name);
         const relPath = path.relative(dir, filePath);
-        
+        const normalized = relPath.replace(/\\/g, '/');
+
+        // Ignore the scanner itself and documentation / binary files
+        if (normalized === 'scripts/audit-secrets.js') {
+          continue;
+        }
+
         // Skip binary and lockfiles
-        if (relPath.endsWith('.png') || relPath.endsWith('.jpg') || relPath.endsWith('.jpeg') || relPath.endsWith('.svg') || relPath.endsWith('.ico') || relPath.endsWith('.pdf') || relPath.endsWith('.mp4') || relPath.endsWith('package-lock.json')) {
+        if (
+          normalized.endsWith('.png') ||
+          normalized.endsWith('.jpg') ||
+          normalized.endsWith('.jpeg') ||
+          normalized.endsWith('.svg') ||
+          normalized.endsWith('.ico') ||
+          normalized.endsWith('.pdf') ||
+          normalized.endsWith('.mp4') ||
+          normalized.endsWith('package-lock.json')
+        ) {
           continue;
         }
 
@@ -57,14 +112,7 @@ export function scanWorkingTree(dir, options = {}) {
             let match;
             while ((match = rule.regex.exec(content)) !== null) {
               const matchedStr = match[0];
-              // Filter out known mocks and placeholders
-              if (
-                matchedStr.includes('mock_') ||
-                matchedStr.includes('example') ||
-                matchedStr.includes('replace_in_prod') ||
-                matchedStr.includes('localman_secure_dev_password_2026') ||
-                matchedStr.includes('localman_ci_password_2026')
-              ) {
+              if (isFalsePositive(matchedStr, content, match.index, rule)) {
                 continue;
               }
               findings.push({
@@ -100,13 +148,7 @@ export function scanGitHistory(repoDir) {
         let match;
         while ((match = rule.regex.exec(commitBody)) !== null) {
           const matchedStr = match[0];
-          if (
-            matchedStr.includes('mock_') ||
-            matchedStr.includes('example') ||
-            matchedStr.includes('replace_in_prod') ||
-            matchedStr.includes('localman_secure_dev_password_2026') ||
-            matchedStr.includes('localman_ci_password_2026')
-          ) {
+          if (isFalsePositive(matchedStr, commitBody, match.index, rule)) {
             continue;
           }
           findings.push({

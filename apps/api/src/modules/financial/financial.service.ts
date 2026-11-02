@@ -38,6 +38,48 @@ export class FinancialService {
   public static readonly MINIMUM_PAYOUT_PAISA = 10000;
 
   /**
+   * Canonical calculation of platform commission fee in integer paisa.
+   */
+  static calculatePlatformFee(
+    baseAmountPaisa: number,
+    commissionPercent: number = FinancialService.DEFAULT_COMMISSION_PERCENT
+  ): number {
+    const validBase = Math.max(0, Math.round(baseAmountPaisa));
+    return Math.round((validBase * commissionPercent) / 100);
+  }
+
+  /**
+   * Canonical derivation of booking price breakdown (base, platform fee, tax, total, provider earning).
+   */
+  static deriveBookingPricing(params: {
+    baseAmountPaisa: number;
+    platformCommissionPercent?: number;
+    gstRatePercent?: number;
+  }) {
+    const baseAmountPaisa = Math.max(0, Math.round(params.baseAmountPaisa));
+    const commissionPercent =
+      params.platformCommissionPercent !== undefined
+        ? params.platformCommissionPercent
+        : FinancialService.DEFAULT_COMMISSION_PERCENT;
+    const gstRatePercent = params.gstRatePercent !== undefined ? params.gstRatePercent : 18.0;
+
+    const platformFeePaisa = FinancialService.calculatePlatformFee(baseAmountPaisa, commissionPercent);
+    const taxAmountPaisa = Math.round((baseAmountPaisa * gstRatePercent) / 100);
+    const totalAmountPaisa = baseAmountPaisa + taxAmountPaisa;
+    const providerEarningPaisa = Math.max(0, baseAmountPaisa - platformFeePaisa);
+
+    return {
+      baseAmountPaisa,
+      platformFeePaisa,
+      taxAmountPaisa,
+      totalAmountPaisa,
+      providerEarningPaisa,
+      platformCommissionPercent: commissionPercent,
+      gstRatePercent,
+    };
+  }
+
+  /**
    * Calculates authoritative financial breakdown for a booking
    */
   static calculateFinancials(params: {
@@ -52,11 +94,11 @@ export class FinancialService {
         ? params.commissionPercentOverride
         : FinancialService.DEFAULT_COMMISSION_PERCENT;
 
-    // Use preset fee if explicitly configured, else compute from commission rate
+    // Use preset fee if explicitly configured, else compute canonically from commission rate
     const platformFeePaisa =
       params.platformFeePaisaPreset !== undefined
         ? params.platformFeePaisaPreset
-        : Math.round((grossAmountPaisa * platformCommissionRate) / 100);
+        : FinancialService.calculatePlatformFee(grossAmountPaisa, platformCommissionRate);
 
     const tdsRate =
       params.tdsPercentOverride !== undefined
