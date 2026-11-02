@@ -117,3 +117,12 @@ CI test env uses mock providers: `STORAGE_PROVIDER=mock SMS_GATEWAY_PROVIDER=moc
   - Aligned `PaymentService.createCheckoutSession` with canonical 15% platform commission / 1% TDS integer paisa math.
   - Verified entire monorepo: API build (0 errors), Admin Web build (0 errors, Vite 2.25s), Customer App (107/107 tests), Provider App (31/31 tests), secret audit (clean).
   - Generated `docs/PHASE_4G_END_TO_END_INTEGRATION_REPORT.md`.
+- 2026-11-03: Phase 4H Native Android Build & Device QA complete:
+  - Toolchain certified: Flutter SDK 3.47.8, Dart 3.13.7, Android Studio OpenJDK 21.0.10 JBR, Android SDK 36.1.0, ADB 1.0.41.
+  - Native Customer release APK built: `in.localman.customer` (version 1.0.0, compileSdk 36, targetSdk 36, 61.8 MB).
+  - Native Provider release APK built: `in.localman.provider` (version 1.0.0, compileSdk 36, targetSdk 36, 59.8 MB).
+  - Cryptographically verified QA signing via `apksigner` (Signature Scheme v2 verified, 1 signer, debug keystore isolation).
+  - Audited strictly necessary foreground permissions (INTERNET, LOCATION, NOTIFICATIONS); zero background tracking.
+  - Saved binaries to local git-ignored folder `release-apks/qa-release-phase-4h/` with computed SHA-256 hashes.
+  - Documented physical device installation via ADB and LAN reverse port forwarding.
+  - Generated `docs/PHASE_4H_ANDROID_DEVICE_QA_REPORT.md`.

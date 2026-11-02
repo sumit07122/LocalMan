@@ -47,3 +47,7 @@ apps/*_app/android/.gradle
 apps/*_app/android/local.properties
 apps/*_app/ios/Pods/
 apps/*_app/ios/.symlinks/
+
+# Android APK releases & binaries
+release-apks/
+*.apk
