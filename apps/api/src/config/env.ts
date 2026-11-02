@@ -36,6 +36,14 @@ const envSchema = z
     SMS_GATEWAY_PROVIDER: z.enum(['mock', 'fast2sms', 'msg91', 'twilio']).default('mock'),
     SMS_GATEWAY_API_KEY: z.string().default('mock_key'),
     SMS_SENDER_ID: z.string().default('LCLMAN'),
+    TWILIO_ACCOUNT_SID: z.string().optional(),
+    TWILIO_AUTH_TOKEN: z.string().optional(),
+    TWILIO_FROM_NUMBER: z.string().optional(),
+    MSG91_TEMPLATE_ID: z.string().optional(),
+
+    NOTIFICATION_PROVIDER: z.enum(['mock', 'fcm']).default('mock'),
+    FCM_PROJECT_ID: z.string().optional(),
+    FCM_SERVICE_ACCOUNT_KEY: z.string().optional(),
 
     PAYMENT_GATEWAY_PROVIDER: z.enum(['mock', 'razorpay', 'cashfree']).default('mock'),
     RAZORPAY_KEY_ID: z.string().default('rzp_test_example'),

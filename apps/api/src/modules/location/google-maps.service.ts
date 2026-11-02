@@ -9,6 +9,15 @@ export interface RouteResult {
   cached?: boolean;
 }
 
+export interface GeocodeResult {
+  lat: number;
+  lng: number;
+  formattedAddress: string;
+  placeId?: string;
+  status: string;
+  cached?: boolean;
+}
+
 export interface Coordinates {
   lat: number;
   lng: number;
@@ -263,6 +272,106 @@ export class GoogleMapsService {
         expiresAt: now + this.cacheTtlMs,
       });
       return exceptionFallback;
+    }
+  }
+
+  /**
+   * Resolves coordinates for a textual address with caching, budget controls, and fallback.
+   */
+  async geocodeAddress(
+    address: string,
+    options?: { forceLive?: boolean }
+  ): Promise<GeocodeResult> {
+    const cleanAddress = address.trim();
+    const cacheKey = `geo:${cleanAddress.toLowerCase()}`;
+    const cached = this.cache.get(cacheKey) as any;
+    const now = Date.now();
+
+    if (cached && cached.expiresAt > now) {
+      return {
+        ...cached.result,
+        cached: true,
+      };
+    }
+
+    const isMock = !this.apiKey || this.apiKey === 'mock_gmaps_key';
+    const isTestMode = env.NODE_ENV === 'test' && !options?.forceLive;
+
+    if (isMock || isTestMode) {
+      // Deterministic fallback (New Delhi coordinates)
+      const fallbackResult: GeocodeResult = {
+        lat: 28.6139,
+        lng: 77.209,
+        formattedAddress: cleanAddress,
+        status: 'FALLBACK_GEOCODE',
+      };
+      this.cache.set(cacheKey, {
+        result: fallbackResult as any,
+        expiresAt: now + this.cacheTtlMs,
+      });
+      return fallbackResult;
+    }
+
+    if (this.isBudgetExceeded()) {
+      const budgetFallback: GeocodeResult = {
+        lat: 28.6139,
+        lng: 77.209,
+        formattedAddress: cleanAddress,
+        status: 'BUDGET_EXCEEDED_FALLBACK',
+      };
+      this.cache.set(cacheKey, {
+        result: budgetFallback as any,
+        expiresAt: now + this.cacheTtlMs,
+      });
+      return budgetFallback;
+    }
+
+    try {
+      this.recordRequestUsage();
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        cleanAddress
+      )}&key=${encodeURIComponent(this.apiKey)}`;
+
+      const response = await this.fetchFn(url, { signal: AbortSignal.timeout(5000) });
+      if (!response.ok) {
+        return {
+          lat: 28.6139,
+          lng: 77.209,
+          formattedAddress: cleanAddress,
+          status: `HTTP_${response.status}`,
+        };
+      }
+
+      const data = (await response.json()) as any;
+      if (data.status === 'OK' && data.results?.[0]) {
+        const first = data.results[0];
+        const res: GeocodeResult = {
+          lat: first.geometry.location.lat,
+          lng: first.geometry.location.lng,
+          formattedAddress: first.formatted_address,
+          placeId: first.place_id,
+          status: 'OK',
+        };
+        this.cache.set(cacheKey, {
+          result: res as any,
+          expiresAt: now + this.cacheTtlMs,
+        });
+        return res;
+      }
+
+      return {
+        lat: 28.6139,
+        lng: 77.209,
+        formattedAddress: cleanAddress,
+        status: data.status || 'ZERO_RESULTS',
+      };
+    } catch {
+      return {
+        lat: 28.6139,
+        lng: 77.209,
+        formattedAddress: cleanAddress,
+        status: 'GEOCODING_UNAVAILABLE',
+      };
     }
   }
 }

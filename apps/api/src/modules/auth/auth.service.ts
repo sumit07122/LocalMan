@@ -13,7 +13,9 @@ import {
 } from '@localman/contracts';
 
 export class AuthService {
-  private smsGateway = getSmsGateway();
+  private get smsGateway() {
+    return getSmsGateway();
+  }
 
   /**
    * Generates and dispatches a 6-digit OTP to the Indian mobile number
@@ -21,7 +23,29 @@ export class AuthService {
   async sendOtp(input: SendOtpInput) {
     const { phoneNumber, phoneCountryCode, role } = input;
 
-    // Rate Limiting Check: Max 3 OTP requests in the last 15 minutes
+    // 1. Resend Cooldown Check: Minimum 60 seconds between consecutive OTP requests
+    const sixtySecondsAgo = new Date(Date.now() - 60 * 1000);
+    const recentOtp = await prisma.otpVerification.findFirst({
+      where: {
+        phoneNumber,
+        createdAt: { gte: sixtySecondsAgo },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (recentOtp) {
+      const waitSeconds = Math.max(
+        1,
+        Math.ceil((recentOtp.createdAt.getTime() + 60 * 1000 - Date.now()) / 1000)
+      );
+      throw new AppError(
+        `Please wait ${waitSeconds} seconds before requesting another verification code.`,
+        429,
+        'RESEND_COOLDOWN'
+      );
+    }
+
+    // 2. Rolling Rate Limiting Check: Max 3 OTP requests in the last 15 minutes
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
     const recentOtpsCount = await prisma.otpVerification.count({
       where: {

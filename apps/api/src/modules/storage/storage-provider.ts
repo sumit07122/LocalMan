@@ -63,6 +63,7 @@ export class MockStorageProvider implements IStorageProvider {
       expiresInSeconds,
       headers: {
         'Content-Type': params.contentType,
+        'x-amz-server-side-encryption': 'AES256',
       },
     };
   }
@@ -201,6 +202,7 @@ export class S3StorageProvider implements IStorageProvider {
           Key: params.storageKey,
           ContentType: params.contentType,
           Metadata: params.metadata,
+          ServerSideEncryption: 'AES256',
         });
         const uploadUrl = await getSignedUrl(this.s3Client, command, { expiresIn: expiresInSeconds });
         return {
@@ -210,6 +212,7 @@ export class S3StorageProvider implements IStorageProvider {
           expiresInSeconds,
           headers: {
             'Content-Type': params.contentType,
+            'x-amz-server-side-encryption': 'AES256',
           },
         };
       } catch (err) {
@@ -225,6 +228,7 @@ export class S3StorageProvider implements IStorageProvider {
       expiresInSeconds,
       headers: {
         'Content-Type': params.contentType,
+        'x-amz-server-side-encryption': 'AES256',
       },
     };
   }

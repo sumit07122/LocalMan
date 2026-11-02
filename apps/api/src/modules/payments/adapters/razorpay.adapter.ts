@@ -7,15 +7,33 @@ import {
   RefundOptions,
 } from './payment-gateway.interface.js';
 
+export interface RazorpayAdapterOptions {
+  keyId?: string;
+  keySecret?: string;
+  webhookSecret?: string;
+  fetchFn?: typeof fetch;
+}
+
 export class RazorpayAdapter implements PaymentGatewayAdapter {
   private keyId: string;
   private keySecret: string;
   private webhookSecret: string;
+  private fetchFn: typeof fetch;
 
-  constructor() {
-    this.keyId = env.RAZORPAY_KEY_ID;
-    this.keySecret = env.RAZORPAY_KEY_SECRET;
-    this.webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
+  constructor(options?: RazorpayAdapterOptions) {
+    this.keyId = options?.keyId ?? env.RAZORPAY_KEY_ID;
+    this.keySecret = options?.keySecret ?? env.RAZORPAY_KEY_SECRET;
+    this.webhookSecret = options?.webhookSecret ?? env.RAZORPAY_WEBHOOK_SECRET;
+    this.fetchFn = options?.fetchFn ?? fetch;
+  }
+
+  private hasValidCredentials(): boolean {
+    return Boolean(
+      this.keyId &&
+      this.keySecret &&
+      this.keyId !== 'rzp_test_example' &&
+      this.keySecret !== 'rzp_secret_example'
+    );
   }
 
   async createOrder(options: CreateOrderOptions): Promise<OrderResult> {
@@ -30,14 +48,15 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
       },
     };
 
-    if (env.NODE_ENV === 'production') {
-      const response = await fetch('https://api.razorpay.com/v1/orders', {
+    if (this.hasValidCredentials() || env.NODE_ENV === 'production') {
+      const response = await this.fetchFn('https://api.razorpay.com/v1/orders', {
         method: 'POST',
         headers: {
           Authorization: `Basic ${authHeader}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(orderPayload),
+        signal: AbortSignal.timeout(8000),
       });
 
       if (!response.ok) {
@@ -62,7 +81,11 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
     };
   }
 
-  verifyPaymentSignature(options: { gatewayOrderId: string; gatewayPaymentId: string; gatewaySignature: string }): boolean {
+  verifyPaymentSignature(options: {
+    gatewayOrderId: string;
+    gatewayPaymentId: string;
+    gatewaySignature: string;
+  }): boolean {
     if (!options.gatewaySignature || !options.gatewayOrderId || !options.gatewayPaymentId) {
       return false;
     }
@@ -99,7 +122,40 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
     );
   }
 
-  async processRefund(_options: RefundOptions): Promise<{ gatewayRefundId: string }> {
+  async processRefund(options: RefundOptions): Promise<{ gatewayRefundId: string }> {
+    const authHeader = Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64');
+    const refundPayload = {
+      amount: options.amountPaisa,
+      notes: {
+        reason: options.reason || 'Booking cancellation or service adjustment',
+      },
+    };
+
+    if (this.hasValidCredentials() || env.NODE_ENV === 'production') {
+      const response = await this.fetchFn(
+        `https://api.razorpay.com/v1/payments/${encodeURIComponent(options.gatewayPaymentId)}/refund`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${authHeader}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(refundPayload),
+          signal: AbortSignal.timeout(8000),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Razorpay refund failed: ${errorText}`);
+      }
+
+      const data = (await response.json()) as any;
+      return {
+        gatewayRefundId: data.id,
+      };
+    }
+
     return {
       gatewayRefundId: `rfnd_rzp_${Date.now()}`,
     };

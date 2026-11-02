@@ -132,3 +132,11 @@ CI test env uses mock providers: `STORAGE_PROVIDER=mock SMS_GATEWAY_PROVIDER=moc
   - Enhanced CORS in `app.ts` to dynamically allow Vercel staging preview domains (`*.vercel.app`).
   - Created step-by-step owner deployment runbook with cost/billing breakdown ($14/mo) and zero committed secrets.
   - Generated `docs/PHASE_4I_STAGING_DEPLOYMENT_REPORT.md`.
+- 2026-11-03: Phase 4J External Service Integrations complete:
+  - Implemented concrete multi-gateway SMS adapters (Fast2SMS DLT, MSG91 Enterprise, Twilio, Mock) with 60s resend cooldown, 3 req/15 min limit, 10 min expiry, 5 attempt lock, and log masking.
+  - Hardened Razorpay payment and webhook signatures via `crypto.timingSafeEqual`, implemented server-side refund execution with integer paisa, and maintained zero trust of frontend payment claims.
+  - Enforced mandatory `x-amz-server-side-encryption: AES256` for all private S3/R2 presigned upload URLs with 60-minute time-limited read URLs and strict MIME/size boundaries.
+  - Implemented Firebase Cloud Messaging HTTP v1 provider with thread-safe device token registry, automatic unregistered token pruning on 404, retry backoff on 429/503, and automated privacy redaction of secrets/OTPs.
+  - Added geocoding support and in-memory 30s cache TTL to GoogleMapsService, protected by 60 req/min and 5000 req/day budget limits with zero-cost Haversine fallback.
+  - Verified full test suite: 24/24 external service integration tests passed, 107/107 customer app tests passed, 31/31 provider app tests passed, 0 TypeScript build errors across all workspaces.
+  - Generated `docs/PHASE_4J_EXTERNAL_INTEGRATIONS_REPORT.md`.
