@@ -5,6 +5,7 @@ import { env } from '../../config/env.js';
 import { generateSecureOtp, hashString } from '../../common/utils/crypto.js';
 import { AppError, UnauthorizedError, ValidationError } from '../../common/errors/app-error.js';
 import { getSmsGateway } from './sms-gateway.interface.js';
+import { monitoringService } from '../monitoring/monitoring.service.js';
 import {
   SendOtpInput,
   VerifyOtpInput,
@@ -55,6 +56,10 @@ export class AuthService {
     });
 
     if (recentOtpsCount >= 3) {
+      monitoringService.recordOtpFailure({
+        phoneNumber,
+        reason: 'RATE_LIMIT_EXCEEDED (Max 3 requests / 15 mins)',
+      });
       throw new AppError(
         'Too many OTP requests. For your security, please wait 15 minutes before trying again.',
         429,
@@ -113,6 +118,11 @@ export class AuthService {
 
     // Check failed attempts
     if (verification.attempts >= 5) {
+      monitoringService.recordOtpFailure({
+        phoneNumber,
+        reason: 'OTP_LOCKED (5 failed attempts reached)',
+        attemptCount: verification.attempts,
+      });
       throw new AppError(
         'Too many failed attempts. This OTP is locked. Please request a new code.',
         429,

@@ -240,11 +240,24 @@ export class FinancialService {
         const providerId = booking.providerId;
 
         // Determine commission rate: provider override > service catalog rate > default 15%
+        // Invariant: Non-canonical rates are strictly blocked from settlement pending explicit owner authorization
         let commissionRate = FinancialService.DEFAULT_COMMISSION_PERCENT;
         if (booking.provider?.commissionRateOverride !== null && booking.provider?.commissionRateOverride !== undefined) {
-          commissionRate = Number(booking.provider.commissionRateOverride);
+          const override = Number(booking.provider.commissionRateOverride);
+          if (override !== FinancialService.DEFAULT_COMMISSION_PERCENT) {
+            throw new ForbiddenError(
+              `Non-canonical provider commission rate override (${override}%) is blocked from settlement pending explicit owner authorization. Canonical platform rate is 15.0%.`
+            );
+          }
+          commissionRate = override;
         } else if (booking.service?.platformCommissionPercent !== null && booking.service?.platformCommissionPercent !== undefined) {
-          commissionRate = Number(booking.service.platformCommissionPercent);
+          const serviceRate = Number(booking.service.platformCommissionPercent);
+          if (serviceRate !== FinancialService.DEFAULT_COMMISSION_PERCENT) {
+            throw new ForbiddenError(
+              `Non-canonical service catalog commission rate (${serviceRate}%) is blocked from settlement pending explicit owner authorization. Canonical platform rate is 15.0%.`
+            );
+          }
+          commissionRate = serviceRate;
         }
 
         const financials = FinancialService.calculateFinancials({

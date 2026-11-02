@@ -7,6 +7,7 @@ import {
 } from '@localman/contracts';
 import { NotFoundError } from '../../common/errors/app-error.js';
 import { financialService } from '../financial/financial.service.js';
+import { monitoringService } from '../monitoring/monitoring.service.js';
 
 export class AdminService {
   /**
@@ -57,6 +58,7 @@ export class AdminService {
       pendingKycReviews,
       totalRevenuePaisa: totalRevenueResult._sum.amountPaisa || 0,
       totalRevenueInr: ((totalRevenueResult._sum.amountPaisa || 0) / 100).toFixed(2),
+      systemHealth: monitoringService.getHealthSummary(),
     };
   }
 

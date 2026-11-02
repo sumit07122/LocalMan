@@ -24,6 +24,7 @@ import { AuthenticatedUser } from '../../common/middleware/auth.middleware.js';
 import { financialService } from '../financial/financial.service.js';
 import { realtimeService } from '../realtime/realtime.service.js';
 import { notificationService } from '../notifications/notification.service.js';
+import { monitoringService } from '../monitoring/monitoring.service.js';
 
 export class PaymentService {
   private adapter: PaymentGatewayAdapter;
@@ -348,6 +349,15 @@ export class PaymentService {
     });
 
     if (!isValid) {
+      monitoringService.recordPaymentFailure({
+        bookingId: payment.bookingId,
+        paymentId: payment.id,
+        gateway: payment.gateway,
+        gatewayOrderId: input.gatewayOrderId,
+        amountPaisa: payment.amountPaisa,
+        reason: 'Invalid cryptographic payment signature',
+        errorCode: 'INVALID_SIGNATURE',
+      });
       await prisma.paymentTransaction.create({
         data: {
           paymentId: payment.id,
@@ -429,6 +439,10 @@ export class PaymentService {
     const raw = rawBody || (typeof payload === 'string' ? payload : JSON.stringify(payload));
     const isValid = this.adapter.verifyWebhookSignature(raw, signature || '');
     if (!isValid) {
+      monitoringService.recordPaymentFailure({
+        reason: 'Invalid webhook HMAC signature',
+        errorCode: 'INVALID_WEBHOOK_SIGNATURE',
+      });
       throw new BadRequestError('Invalid webhook signature');
     }
 

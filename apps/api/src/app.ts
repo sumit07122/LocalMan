@@ -19,6 +19,7 @@ import { addressRoutes } from './modules/addresses/address.routes.js';
 import { reviewRoutes } from './modules/reviews/review.routes.js';
 import { reviewController } from './modules/reviews/review.controller.js';
 import { mediaRoutes } from './modules/media/media.routes.js';
+import { monitoringService } from './modules/monitoring/monitoring.service.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -101,6 +102,10 @@ export async function buildApp(): Promise<FastifyInstance> {
       };
     } catch (err: any) {
       request.log.error(err, 'Database readiness check failed');
+      monitoringService.recordDatabaseFailure({
+        operation: 'GET /health/ready',
+        error: err.message || 'Database connection check failed',
+      });
       return reply.status(503).send({
         status: 'error',
         service: 'localman-api',
