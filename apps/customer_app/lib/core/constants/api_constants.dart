@@ -50,4 +50,16 @@ class ApiConstants {
   static String bookingMessages(String bookingId) => '$baseUrl/bookings/$bookingId/messages';
   static String bookingMessageRead(String bookingId) => '$baseUrl/bookings/$bookingId/messages/read';
   static String bookingMessageStream(String bookingId) => '$baseUrl/bookings/$bookingId/messages/stream';
+
+  // Phase 3J Reviews & Reputation endpoints
+  static String bookingReview(String bookingId) => '$baseUrl/bookings/$bookingId/review';
+  static String reviewById(String reviewId) => '$baseUrl/reviews/$reviewId';
+  static String reviewReport(String reviewId) => '$baseUrl/reviews/$reviewId/report';
+  static String providerReviews(String providerId) => '$baseUrl/providers/$providerId/reviews';
+  static String providerReputation(String providerId) => '$baseUrl/providers/$providerId/reputation';
+
+  // Phase 3K Live Maps & ETA endpoints
+  static String bookingMapState(String bookingId) => '$baseUrl/bookings/$bookingId/map-state';
+  static String bookingEta(String bookingId) => '$baseUrl/bookings/$bookingId/eta';
+  static String bookingLocation(String bookingId) => '$baseUrl/bookings/$bookingId/location';
 }

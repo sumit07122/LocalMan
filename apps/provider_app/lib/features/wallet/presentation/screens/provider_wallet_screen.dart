@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../shared/models/wallet_model.dart';
+import '../../../../shared/models/wallet_model.dart';
 import '../../data/wallet_repository.dart';
 
 class ProviderWalletScreen extends ConsumerWidget {
@@ -62,7 +62,7 @@ class ProviderWalletScreen extends ConsumerWidget {
         data: (summary) => RefreshIndicator(
           color: const Color(0xFFF59E0B),
           onRefresh: () async {
-            ref.refresh(walletSummaryFutureProvider);
+            ref.invalidate(walletSummaryFutureProvider);
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -376,7 +376,7 @@ class ProviderWalletScreen extends ConsumerWidget {
                               backgroundColor: Color(0xFF10B981),
                             ),
                           );
-                          ref.refresh(walletSummaryFutureProvider);
+                          ref.invalidate(walletSummaryFutureProvider);
                         }
                       } catch (e) {
                         setDialogState(() => isSubmitting = false);

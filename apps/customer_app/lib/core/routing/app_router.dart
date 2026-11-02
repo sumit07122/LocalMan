@@ -117,7 +117,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'book-service',
         builder: (context, state) {
           final serviceId = state.uri.queryParameters['serviceId'] ?? '';
-          return BookingCreationScreen(initialServiceId: serviceId);
+          return BookingCreationScreen(serviceId: serviceId);
         },
       ),
       GoRoute(

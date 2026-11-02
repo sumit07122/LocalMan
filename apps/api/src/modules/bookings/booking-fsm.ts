@@ -20,6 +20,7 @@ export interface TransitionContext {
   isAssignedProvider: boolean;
   isAdmin: boolean;
   startOtpExpected?: string;
+  startOtpHashExpected?: string;
   startOtpSubmitted?: string;
   completionPhotos?: string[];
   createdAt?: Date | string;
@@ -82,7 +83,12 @@ export class BookingFSM {
         // Strict Customer Start OTP Verification
         if (!isAdmin) {
           bookingOtpService.verifyStartOtp(
-            { id: context.bookingId, startOtp: startOtpExpected || '', createdAt: context.createdAt },
+            {
+              id: context.bookingId,
+              startOtp: startOtpExpected || '',
+              startOtpHash: context.startOtpHashExpected,
+              createdAt: context.createdAt,
+            },
             startOtpSubmitted
           );
         }

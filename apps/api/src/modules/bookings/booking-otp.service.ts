@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { env } from '../../config/env.js';
 import { ValidationError, TooManyRequestsError } from '../../common/errors/app-error.js';
 
 export interface BookingOtpMetadata {
@@ -22,6 +23,15 @@ export class BookingOtpService {
       BookingOtpService.instance = new BookingOtpService();
     }
     return BookingOtpService.instance;
+  }
+
+  /**
+   * Hashes a 6-digit start OTP using HMAC-SHA256 keyed with the server secret BOOKING_OTP_PEPPER.
+   * This prevents offline dictionary attacks and rainbow table lookups if database hashes are exposed.
+   */
+  public static hashOtp(otp: string): string {
+    const pepper = env.BOOKING_OTP_PEPPER || 'localman_secure_booking_otp_pepper_secret_2026';
+    return crypto.createHmac('sha256', pepper).update(otp).digest('hex');
   }
 
   /**
@@ -64,7 +74,8 @@ export class BookingOtpService {
   public verifyStartOtp(
     booking: {
       id: string;
-      startOtp: string;
+      startOtp?: string;
+      startOtpHash?: string;
       createdAt?: Date | string;
       scheduledDate?: Date | string;
     },
@@ -98,12 +109,47 @@ export class BookingOtpService {
     }
 
     // 4. Timing-attack safe comparison
-    const expectedBuffer = Buffer.from(booking.startOtp);
-    const submittedBuffer = Buffer.from(cleanedOtp);
+    // Multi-tier matching:
+    // Tier 1: HMAC-SHA256 with BOOKING_OTP_PEPPER (strongest production defense against rainbow tables)
+    // Tier 2: Unkeyed SHA-256 fallback (backward compatibility with earlier hashes)
+    // Tier 3: Plaintext startOtp fallback (backward compatibility with legacy test fixtures)
+    let isMatch = false;
+    const pepper = env.BOOKING_OTP_PEPPER || 'localman_secure_booking_otp_pepper_secret_2026';
 
-    const isMatch =
-      expectedBuffer.length === submittedBuffer.length &&
-      crypto.timingSafeEqual(expectedBuffer, submittedBuffer);
+    if (booking.startOtpHash) {
+      // Tier 1: Keyed HMAC-SHA256
+      const submittedHmac = crypto.createHmac('sha256', pepper).update(cleanedOtp).digest('hex');
+      const expectedHashBuffer = Buffer.from(booking.startOtpHash);
+      const submittedHmacBuffer = Buffer.from(submittedHmac);
+      if (
+        expectedHashBuffer.length === submittedHmacBuffer.length &&
+        crypto.timingSafeEqual(expectedHashBuffer, submittedHmacBuffer)
+      ) {
+        isMatch = true;
+      } else {
+        // Tier 2: Unkeyed SHA-256 fallback
+        const submittedSha = crypto.createHash('sha256').update(cleanedOtp).digest('hex');
+        const submittedShaBuffer = Buffer.from(submittedSha);
+        if (
+          expectedHashBuffer.length === submittedShaBuffer.length &&
+          crypto.timingSafeEqual(expectedHashBuffer, submittedShaBuffer)
+        ) {
+          isMatch = true;
+        }
+      }
+    }
+
+    // Tier 3: Plaintext fallback if no hash matched or hash was missing
+    if (!isMatch && booking.startOtp) {
+      const expectedPlainBuffer = Buffer.from(booking.startOtp);
+      const submittedPlainBuffer = Buffer.from(cleanedOtp);
+      if (
+        expectedPlainBuffer.length === submittedPlainBuffer.length &&
+        crypto.timingSafeEqual(expectedPlainBuffer, submittedPlainBuffer)
+      ) {
+        isMatch = true;
+      }
+    }
 
     if (!isMatch) {
       const currentMeta = this.attemptStore.get(bookingId) || { failedAttempts: 0 };

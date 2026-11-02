@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../shared/models/booking_model.dart';
+import '../../../../shared/models/booking_model.dart';
 import '../../data/booking_repository.dart';
-import '../../dashboard/data/location_service.dart';
+import '../../../dashboard/data/location_service.dart';
 
 class ActiveJobExecutionScreen extends ConsumerStatefulWidget {
   final String bookingId;
@@ -24,7 +24,6 @@ class _ActiveJobExecutionScreenState extends ConsumerState<ActiveJobExecutionScr
   String? _errorMessage;
 
   final _otpController = TextEditingController();
-  final List<BookingMaterial> _addedMaterials = [];
 
   @override
   void initState() {
@@ -350,7 +349,48 @@ class _ActiveJobExecutionScreenState extends ConsumerState<ActiveJobExecutionScr
                         ),
                       ],
                     ),
-                    if (jobState == 'PROVIDER_ON_THE_WAY') ...[
+                    if (jobState == 'PROVIDER_ON_THE_WAY' || jobState == 'ARRIVED') ...[
+                      const SizedBox(height: 12),
+
+                      // Phase 3K Destination Map Canvas
+                      Container(
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE2E8F0),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                            Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.location_pin, color: Color(0xFFEF4444), size: 32),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    booking.addressFormatted.split(',').first,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
                       const SizedBox(height: 10),
                       Row(
                         children: [
@@ -368,14 +408,75 @@ class _ActiveJobExecutionScreenState extends ConsumerState<ActiveJobExecutionScr
                                 );
                               },
                               icon: const Icon(Icons.my_location, size: 16),
-                              label: const Text('Update Live GPS', style: TextStyle(fontSize: 12)),
+                              label: const Text('Sync GPS Beacon', style: TextStyle(fontSize: 12)),
                               style: OutlinedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 side: const BorderSide(color: Color(0xFF0F172A)),
                               ),
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Navigating to destination: ${booking.addressFormatted}'),
+                                    backgroundColor: const Color(0xFF0F172A),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.directions, size: 16),
+                              label: const Text('Open Maps', style: TextStyle(fontSize: 12)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F172A),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                            ),
+                          ),
                         ],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.check_circle_outline, size: 14, color: Color(0xFF10B981)),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Live GPS tracking active (transit/arrival). Beacons broadcast automatically.',
+                                style: TextStyle(fontSize: 11, color: Color(0xFF065F46), fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else if (jobState == 'JOB_STARTED' || jobState == 'JOB_EXTENDED') ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.shield_outlined, size: 14, color: Color(0xFF64748B)),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'GPS tracking stopped: On-site work in progress (Provider privacy protected).',
+                                style: TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                     const Divider(height: 20),

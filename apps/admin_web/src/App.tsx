@@ -10,6 +10,11 @@ import {
   RefreshCw,
   Layers,
   Lock,
+  Star,
+  Flag,
+  MessageSquare,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface Metrics {
@@ -60,11 +65,114 @@ interface BookingItem {
       phoneNumber: string;
     };
   };
+  media?: {
+    beforeWorkPhotos?: { id: string; fileUrl: string; caption?: string; createdAt?: string }[];
+    afterWorkPhotos?: { id: string; fileUrl: string; caption?: string; createdAt?: string }[];
+    problemPhotos?: { id: string; fileUrl: string; caption?: string; createdAt?: string }[];
+  };
+}
+
+interface ReviewItemAdmin {
+  id: string;
+  bookingId: string;
+  bookingNumber: string;
+  customerName: string;
+  providerName: string;
+  rating: number;
+  title: string | null;
+  comment: string | null;
+  status: 'PENDING' | 'PUBLISHED' | 'HIDDEN' | 'REMOVED' | 'FLAGGED';
+  reportCount: number;
+  providerResponse?: string | null;
+  moderationReason?: string | null;
+  photos?: string[];
+  createdAt: string;
 }
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'radar' | 'kyc' | 'catalog' | 'audit'>('radar');
+  const [activeTab, setActiveTab] = useState<'radar' | 'kyc' | 'reviews' | 'catalog' | 'audit'>('radar');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState<'ALL' | 'FLAGGED' | 'PENDING' | 'PUBLISHED' | 'HIDDEN' | 'REMOVED'>('ALL');
+  const [selectedReviewForMod, setSelectedReviewForMod] = useState<ReviewItemAdmin | null>(null);
+  const [selectedBookingForMedia, setSelectedBookingForMedia] = useState<BookingItem | null>(null);
+  const [modReason, setModReason] = useState('');
+  const [reviews, setReviews] = useState<ReviewItemAdmin[]>([
+    {
+      id: 'rev_01',
+      bookingId: 'bk_01h8a...',
+      bookingNumber: 'LM-20261017-X82A',
+      customerName: 'Ananya Roy',
+      providerName: 'Ramesh Electrical Works',
+      rating: 5,
+      title: 'Prompt and highly professional',
+      comment: 'Arrived exactly within the 10-minute window and fixed the tripping MCB without fuss. Cleaned up afterwards.',
+      status: 'PUBLISHED',
+      reportCount: 0,
+      photos: [
+        'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=600',
+        'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600',
+      ],
+      createdAt: '2026-10-18 10:30 UTC',
+    },
+    {
+      id: 'rev_02',
+      bookingId: 'bk_01h8b...',
+      bookingNumber: 'LM-20261017-B91K',
+      customerName: 'Vikram Mehta',
+      providerName: 'Sharma Plumbing Co.',
+      rating: 1,
+      title: 'Suspicious abusive language in comment',
+      comment: 'This service provider was completely rude and used vulgar language when requesting extra parts payment.',
+      status: 'FLAGGED',
+      reportCount: 2,
+      createdAt: '2026-10-19 14:15 UTC',
+    },
+    {
+      id: 'rev_03',
+      bookingId: 'bk_01h8c...',
+      bookingNumber: 'LM-20261017-C44P',
+      customerName: 'Sunita Rao',
+      providerName: 'Apex Appliance Care',
+      rating: 4,
+      title: 'Good AC cleaning',
+      comment: 'Deep foam jet clean made the cooling much better. Provider was 15 mins late due to rain.',
+      status: 'PUBLISHED',
+      providerResponse: 'Thank you Sunita ji! We apologise for the rain delay and appreciate your feedback.',
+      reportCount: 0,
+      createdAt: '2026-10-19 16:45 UTC',
+    },
+    {
+      id: 'rev_04',
+      bookingId: 'bk_01h8d...',
+      bookingNumber: 'LM-20261018-D72Z',
+      customerName: 'Rajesh G.',
+      providerName: 'Urban Clean Express',
+      rating: 2,
+      title: 'Pending review queue check',
+      comment: 'Contains competitor phone numbers and spam links to outside service.',
+      status: 'PENDING',
+      reportCount: 1,
+      createdAt: '2026-10-20 09:12 UTC',
+    },
+  ]);
+
+  const handleApplyModeration = (newStatus: 'PUBLISHED' | 'HIDDEN' | 'REMOVED' | 'FLAGGED') => {
+    if (!selectedReviewForMod) return;
+    if (!modReason.trim()) {
+      alert('A moderation reason is mandatory for all admin review decisions.');
+      return;
+    }
+
+    setReviews(prev =>
+      prev.map(r =>
+        r.id === selectedReviewForMod.id
+          ? { ...r, status: newStatus, moderationReason: modReason.trim() }
+          : r
+      )
+    );
+    setSelectedReviewForMod(null);
+    setModReason('');
+  };
 
   // Mock initial state representing real seeded database data
   const [metrics, setMetrics] = useState<Metrics>({
@@ -128,6 +236,32 @@ export function App() {
         businessName: 'CoolCare AC Solutions',
         user: { fullName: 'Amit Verma', phoneNumber: '+91 9722334455' },
       },
+      media: {
+        beforeWorkPhotos: [
+          {
+            id: 'med_01',
+            fileUrl: 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=600',
+            caption: 'AC indoor unit coil and filter before jet cleaning',
+            createdAt: '10:05 AM',
+          },
+        ],
+        afterWorkPhotos: [
+          {
+            id: 'med_02',
+            fileUrl: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600',
+            caption: 'Sanitized blower fan & outdoor unit high-pressure jet washed',
+            createdAt: '11:45 AM',
+          },
+        ],
+        problemPhotos: [
+          {
+            id: 'med_03',
+            fileUrl: 'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=600',
+            caption: 'Customer initial complaint: Water leaking from right drain pipe',
+            createdAt: '09:30 AM',
+          },
+        ],
+      },
     },
     {
       id: 'bkg_002',
@@ -143,6 +277,16 @@ export function App() {
         businessName: 'Sharma Plumbing Co.',
         user: { fullName: 'Prakash Sharma', phoneNumber: '+91 9811223344' },
       },
+      media: {
+        problemPhotos: [
+          {
+            id: 'med_04',
+            fileUrl: 'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=600',
+            caption: 'Kitchen sink pipe joint fracture and dripping water',
+            createdAt: '01:45 PM',
+          },
+        ],
+      },
     },
     {
       id: 'bkg_003',
@@ -157,6 +301,16 @@ export function App() {
       provider: {
         businessName: 'Ramesh Electrical Works',
         user: { fullName: 'Ramesh Kumar', phoneNumber: '+91 9876543210' },
+      },
+      media: {
+        beforeWorkPhotos: [
+          {
+            id: 'med_05',
+            fileUrl: 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=600',
+            caption: 'Burnt insulation on 32A main distribution board switch',
+            createdAt: '11:35 AM',
+          },
+        ],
       },
     },
   ]);
@@ -415,6 +569,26 @@ export function App() {
         </button>
 
         <button
+          onClick={() => setActiveTab('reviews')}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: '10px 16px',
+            color: activeTab === 'reviews' ? '#F59E0B' : 'var(--text-muted)',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            cursor: 'pointer',
+            borderBottom: activeTab === 'reviews' ? '2px solid #F59E0B' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <Star size={18} />
+          Review Moderation ({reviews.filter(r => r.status === 'FLAGGED' || r.status === 'PENDING').length})
+        </button>
+
+        <button
           onClick={() => setActiveTab('catalog')}
           style={{
             background: 'none',
@@ -555,10 +729,19 @@ export function App() {
                     </td>
                     <td style={{ padding: '16px' }}>
                       <button
+                        onClick={() => setSelectedBookingForMedia(b)}
                         className="btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '0.8rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                        }}
                       >
-                        Details
+                        <Camera size={14} color="#38BDF8" />
+                        Photos & Evidence
                       </button>
                     </td>
                   </tr>
@@ -681,6 +864,523 @@ export function App() {
         </div>
       )}
 
+      {/* Tab Content: Review Moderation Queue (Phase 3J) */}
+      {activeTab === 'reviews' && (
+        <div>
+          <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Customer Reviews Moderation Queue</h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Auditable moderation for completed booking reviews, flagged content, and provider responses.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {(['ALL', 'FLAGGED', 'PENDING', 'PUBLISHED', 'HIDDEN', 'REMOVED'] as const).map(filter => (
+                <button
+                  key={filter}
+                  onClick={() => setReviewFilter(filter)}
+                  style={{
+                    background: reviewFilter === filter ? 'rgba(245, 158, 11, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                    border: `1px solid ${reviewFilter === filter ? '#F59E0B' : 'var(--border-subtle)'}`,
+                    color: reviewFilter === filter ? '#FBBF24' : 'var(--text-muted)',
+                    borderRadius: '8px',
+                    padding: '6px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {reviews
+              .filter(r => reviewFilter === 'ALL' || r.status === reviewFilter)
+              .map(r => (
+                <div
+                  key={r.id}
+                  className="glass-panel"
+                  style={{
+                    padding: '20px',
+                    borderLeft: `4px solid ${
+                      r.status === 'FLAGGED'
+                        ? '#EF4444'
+                        : r.status === 'PENDING'
+                        ? '#F59E0B'
+                        : r.status === 'PUBLISHED'
+                        ? '#10B981'
+                        : '#64748B'
+                    }`,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ display: 'flex', gap: '2px', color: '#F59E0B' }}>
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              size={16}
+                              fill={i < r.rating ? '#F59E0B' : 'none'}
+                              color="#F59E0B"
+                            />
+                          ))}
+                        </div>
+                        <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{r.title || 'Untitled Review'}</span>
+                        <span
+                          className={`badge ${
+                            r.status === 'PUBLISHED'
+                              ? 'badge-completed'
+                              : r.status === 'FLAGGED'
+                              ? 'badge-cancelled'
+                              : 'badge-pending'
+                          }`}
+                        >
+                          {r.status}
+                        </span>
+                        {r.reportCount > 0 && (
+                          <span
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.2)',
+                              color: '#F87171',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              border: '1px solid rgba(239, 68, 68, 0.4)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <Flag size={12} />
+                            {r.reportCount} {r.reportCount === 1 ? 'Report' : 'Reports'}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Booking #{r.bookingNumber} • Customer: <strong style={{ color: '#F8FAFC' }}>{r.customerName}</strong> • Provider: <strong style={{ color: '#F8FAFC' }}>{r.providerName}</strong>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedReviewForMod(r);
+                        setModReason(r.moderationReason || '');
+                      }}
+                      className="btn-secondary"
+                      style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: 600 }}
+                    >
+                      Moderate Review
+                    </button>
+                  </div>
+
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', margin: '10px 0', lineHeight: 1.5 }}>
+                    "{r.comment}"
+                  </p>
+
+                  {r.photos && r.photos.length > 0 && (
+                    <div style={{ margin: '12px 0' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <ImageIcon size={12} />
+                        Customer Attached Photos ({r.photos.length})
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {r.photos.map((photoUrl, pIdx) => (
+                          <a
+                            key={pIdx}
+                            href={photoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}
+                          >
+                            <img
+                              src={photoUrl}
+                              alt={`Customer photo ${pIdx + 1}`}
+                              style={{ width: '72px', height: '72px', objectFit: 'cover', display: 'block' }}
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {r.providerResponse && (
+                    <div
+                      style={{
+                        background: 'rgba(15, 23, 42, 0.7)',
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-subtle)',
+                        marginTop: '10px',
+                        fontSize: '0.85rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#FBBF24', fontWeight: 600, marginBottom: '4px' }}>
+                        <MessageSquare size={14} />
+                        Provider Response
+                      </div>
+                      <div style={{ color: 'var(--text-muted)' }}>{r.providerResponse}</div>
+                    </div>
+                  )}
+
+                  {r.moderationReason && (
+                    <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '8px', fontStyle: 'italic' }}>
+                      Audit Note: {r.moderationReason}
+                    </div>
+                  )}
+                </div>
+              ))}
+          </div>
+
+          {/* Moderation Action Modal */}
+          {selectedReviewForMod && (
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0, 0, 0, 0.75)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+                backdropFilter: 'blur(4px)',
+              }}
+            >
+              <div
+                className="glass-panel"
+                style={{
+                  width: '520px',
+                  maxWidth: '90vw',
+                  padding: '24px',
+                  background: '#0F172A',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '16px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>Review Moderation Decision</h3>
+                  <button
+                    onClick={() => setSelectedReviewForMod(null)}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div style={{ marginBottom: '16px', background: 'rgba(30, 41, 59, 0.6)', padding: '12px', borderRadius: '8px', fontSize: '0.85rem' }}>
+                  <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Booking: #{selectedReviewForMod.bookingNumber}</div>
+                  <div style={{ color: '#F8FAFC', fontWeight: 600 }}>{selectedReviewForMod.customerName} ({selectedReviewForMod.rating} ★)</div>
+                  <div style={{ color: 'var(--text-dim)', marginTop: '4px', fontStyle: 'italic' }}>"{selectedReviewForMod.comment}"</div>
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#F8FAFC', marginBottom: '6px' }}>
+                    Mandatory Moderation Reason (Audited) *
+                  </label>
+                  <textarea
+                    value={modReason}
+                    onChange={e => setModReason(e.target.value)}
+                    placeholder="Specify exact policy rationale (e.g., Verified authentic customer feedback, Abusive language violation under Sec 4.2, Spam link removal)..."
+                    rows={3}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(15, 23, 42, 0.8)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '8px',
+                      padding: '10px',
+                      color: '#F8FAFC',
+                      fontSize: '0.85rem',
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                  <button
+                    onClick={() => handleApplyModeration('PUBLISHED')}
+                    style={{
+                      padding: '10px',
+                      background: '#065F46',
+                      color: '#34D399',
+                      border: '1px solid #10B981',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ✓ Publish / Keep Active
+                  </button>
+                  <button
+                    onClick={() => handleApplyModeration('HIDDEN')}
+                    style={{
+                      padding: '10px',
+                      background: '#78350F',
+                      color: '#FBBF24',
+                      border: '1px solid #D97706',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    👁 Hide from Profile
+                  </button>
+                  <button
+                    onClick={() => handleApplyModeration('FLAGGED')}
+                    style={{
+                      padding: '10px',
+                      background: '#831843',
+                      color: '#F472B6',
+                      border: '1px solid #DB2777',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ⚑ Flag for Investigation
+                  </button>
+                  <button
+                    onClick={() => handleApplyModeration('REMOVED')}
+                    style={{
+                      padding: '10px',
+                      background: '#7F1D1D',
+                      color: '#F87171',
+                      border: '1px solid #EF4444',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ✕ Remove Permanently
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal: Job Photos & Evidence Inspector (Phase 3L) */}
+          {selectedBookingForMedia && (
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+                padding: '20px',
+              }}
+            >
+              <div
+                className="glass-panel"
+                style={{
+                  maxWidth: '820px',
+                  width: '100%',
+                  maxHeight: '90vh',
+                  overflowY: 'auto',
+                  padding: '28px',
+                  border: '1px solid var(--border-subtle)',
+                  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+                  background: '#0F172A',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '20px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    paddingBottom: '14px',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Camera size={20} color="#38BDF8" />
+                      <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#F8FAFC' }}>
+                        Job Photos & Field Evidence
+                      </h3>
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      Booking #{selectedBookingForMedia.bookingNumber} • {selectedBookingForMedia.service.name}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedBookingForMedia(null)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-dim)',
+                      fontSize: '1.4rem',
+                      cursor: 'pointer',
+                      padding: '4px 8px',
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Booking Summary Strip */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                    gap: '12px',
+                    background: 'rgba(30, 41, 59, 0.5)',
+                    padding: '14px',
+                    borderRadius: '8px',
+                    marginBottom: '24px',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  <div>
+                    <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>CUSTOMER</div>
+                    <div style={{ fontWeight: 600, color: '#F8FAFC' }}>{selectedBookingForMedia.customer.fullName}</div>
+                    <div style={{ color: 'var(--text-muted)' }}>{selectedBookingForMedia.customer.phoneNumber}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>ASSIGNED PRO</div>
+                    <div style={{ fontWeight: 600, color: '#F8FAFC' }}>
+                      {selectedBookingForMedia.provider?.user.fullName || 'Unassigned'}
+                    </div>
+                    <div style={{ color: 'var(--text-muted)' }}>
+                      {selectedBookingForMedia.provider?.businessName || ''}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>CURRENT STATUS</div>
+                    <div style={{ marginTop: '2px' }}>{getStatusBadge(selectedBookingForMedia.currentStatus)}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>START OTP</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#FBBF24', letterSpacing: '0.05em' }}>
+                      {selectedBookingForMedia.startOtp}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Categorized Media Grid */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* 1. Customer Problem / Inspection Photos */}
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#F8FAFC', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F59E0B' }} />
+                        Customer Problem Photos ({selectedBookingForMedia.media?.problemPhotos?.length || 0})
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Captured at request</span>
+                    </div>
+                    {(!selectedBookingForMedia.media?.problemPhotos || selectedBookingForMedia.media.problemPhotos.length === 0) ? (
+                      <div style={{ color: 'var(--text-dim)', fontSize: '0.85rem', fontStyle: 'italic', padding: '8px 0' }}>
+                        No problem photos submitted by customer for this booking.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '14px' }}>
+                        {selectedBookingForMedia.media.problemPhotos.map((photo) => (
+                          <div key={photo.id} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-subtle)', background: '#1E293B' }}>
+                            <a href={photo.fileUrl} target="_blank" rel="noreferrer">
+                              <img src={photo.fileUrl} alt="Problem Photo" style={{ width: '100%', height: '140px', objectFit: 'cover', display: 'block' }} />
+                            </a>
+                            <div style={{ padding: '8px 10px', fontSize: '0.75rem' }}>
+                              <div style={{ color: '#F8FAFC', fontWeight: 500 }}>{photo.caption || 'Customer issue report'}</div>
+                              {photo.createdAt && <div style={{ color: 'var(--text-dim)', marginTop: '2px' }}>{photo.createdAt}</div>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Before-Work vs After-Work Side-by-Side Proof */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+                    {/* Before-Work */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#F8FAFC', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38BDF8' }} />
+                          Before-Work Photos ({selectedBookingForMedia.media?.beforeWorkPhotos?.length || 0})
+                        </div>
+                        <span style={{ fontSize: '0.75rem', color: '#38BDF8' }}>Provider Arrival Proof</span>
+                      </div>
+                      {(!selectedBookingForMedia.media?.beforeWorkPhotos || selectedBookingForMedia.media.beforeWorkPhotos.length === 0) ? (
+                        <div style={{ color: 'var(--text-dim)', fontSize: '0.85rem', fontStyle: 'italic', padding: '8px 0' }}>
+                          No before-work photos uploaded yet.
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {selectedBookingForMedia.media.beforeWorkPhotos.map((photo) => (
+                            <div key={photo.id} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-subtle)', background: '#1E293B' }}>
+                              <a href={photo.fileUrl} target="_blank" rel="noreferrer">
+                                <img src={photo.fileUrl} alt="Before Work" style={{ width: '100%', height: '160px', objectFit: 'cover', display: 'block' }} />
+                              </a>
+                              <div style={{ padding: '8px 10px', fontSize: '0.75rem' }}>
+                                <div style={{ color: '#F8FAFC', fontWeight: 500 }}>{photo.caption || 'Pre-work inspection proof'}</div>
+                                {photo.createdAt && <div style={{ color: 'var(--text-dim)', marginTop: '2px' }}>{photo.createdAt}</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* After-Work */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#F8FAFC', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} />
+                          After-Work Photos ({selectedBookingForMedia.media?.afterWorkPhotos?.length || 0})
+                        </div>
+                        <span style={{ fontSize: '0.75rem', color: '#10B981' }}>Work Completed Proof</span>
+                      </div>
+                      {(!selectedBookingForMedia.media?.afterWorkPhotos || selectedBookingForMedia.media.afterWorkPhotos.length === 0) ? (
+                        <div style={{ color: 'var(--text-dim)', fontSize: '0.85rem', fontStyle: 'italic', padding: '8px 0' }}>
+                          No after-work photos uploaded yet.
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {selectedBookingForMedia.media.afterWorkPhotos.map((photo) => (
+                            <div key={photo.id} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-subtle)', background: '#1E293B' }}>
+                              <a href={photo.fileUrl} target="_blank" rel="noreferrer">
+                                <img src={photo.fileUrl} alt="After Work" style={{ width: '100%', height: '160px', objectFit: 'cover', display: 'block' }} />
+                              </a>
+                              <div style={{ padding: '8px 10px', fontSize: '0.75rem' }}>
+                                <div style={{ color: '#F8FAFC', fontWeight: 500 }}>{photo.caption || 'Completed job execution verification'}</div>
+                                {photo.createdAt && <div style={{ color: 'var(--text-dim)', marginTop: '2px' }}>{photo.createdAt}</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => setSelectedBookingForMedia(null)}
+                    className="btn-secondary"
+                    style={{ padding: '8px 20px', fontSize: '0.85rem', cursor: 'pointer' }}
+                  >
+                    Close Inspector
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tab Content: Service Catalog */}
       {activeTab === 'catalog' && (
         <div className="glass-panel" style={{ padding: '24px' }}>
@@ -742,6 +1442,27 @@ export function App() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 18px',
+                background: 'rgba(15, 23, 42, 0.6)',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ color: '#F472B6', fontWeight: 700 }}>REVIEW_MODERATED</span>
+                <span style={{ color: 'var(--text-dim)' }}>•</span>
+                <span>Review rev_02 flagged by moderator (Vikram Mehta vs Sharma Plumbing Co.)</span>
+              </div>
+              <span style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                2026-10-20 11:45:00 UTC
+              </span>
+            </div>
+
             <div
               style={{
                 display: 'flex',

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../reviews/domain/provider_reputation_models.dart';
 
 class ProviderProfileData {
   final String id;
@@ -57,6 +58,10 @@ abstract class IProviderRepository {
     String? bankIfscCode,
     String? upiId,
   });
+  // Phase 3J Reputation & Reviews
+  Future<ProviderReputation> getReputation([String? providerId]);
+  Future<List<ProviderReviewItem>> getReviews({int page = 1, int limit = 20});
+  Future<bool> respondToReview(String reviewId, String responseText);
 }
 
 class ProviderRepository implements IProviderRepository {
@@ -147,6 +152,68 @@ class ProviderRepository implements IProviderRepository {
     }
     return ProviderProfileData.fromJson(data);
   }
+
+  // Phase 3J Implementation
+  @override
+  Future<ProviderReputation> getReputation([String? providerId]) async {
+    final endpoint = providerId != null
+        ? ApiConstants.providerReputation(providerId)
+        : ApiConstants.providerOwnReviews; // Fallback or own profile
+    try {
+      final response = await _apiClient.get(endpoint);
+      final raw = response.data;
+      Map<String, dynamic> data = {};
+      if (raw is Map<String, dynamic>) {
+        if (raw['data'] is Map<String, dynamic>) {
+          data = raw['data'] as Map<String, dynamic>;
+        } else {
+          data = raw;
+        }
+      }
+      return ProviderReputation.fromJson(data);
+    } catch (_) {
+      return const ProviderReputation(
+        averageRating: 5.0,
+        totalReviews: 0,
+        countsByRating: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+      );
+    }
+  }
+
+  @override
+  Future<List<ProviderReviewItem>> getReviews({int page = 1, int limit = 20}) async {
+    try {
+      final response = await _apiClient.get(
+        ApiConstants.providerOwnReviews,
+        queryParameters: {'page': page, 'limit': limit},
+      );
+      final raw = response.data;
+      List<dynamic> items = [];
+      if (raw is Map<String, dynamic>) {
+        if (raw['data'] is List<dynamic>) {
+          items = raw['data'] as List<dynamic>;
+        } else if (raw['data'] is Map<String, dynamic> && raw['data']['items'] is List<dynamic>) {
+          items = raw['data']['items'] as List<dynamic>;
+        }
+      }
+      return items.map((e) => ProviderReviewItem.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
+  Future<bool> respondToReview(String reviewId, String responseText) async {
+    final response = await _apiClient.post(
+      ApiConstants.reviewResponse(reviewId),
+      data: {'response': responseText},
+    );
+    final raw = response.data;
+    if (raw is Map<String, dynamic>) {
+      return raw['success'] as bool? ?? true;
+    }
+    return true;
+  }
 }
 
 final providerRepositoryProvider = Provider<IProviderRepository>((ref) {
@@ -157,4 +224,14 @@ final providerRepositoryProvider = Provider<IProviderRepository>((ref) {
 final providerProfileFutureProvider = FutureProvider.autoDispose<ProviderProfileData>((ref) async {
   final repo = ref.watch(providerRepositoryProvider);
   return repo.getProfile();
+});
+
+final providerReviewsFutureProvider = FutureProvider.autoDispose<List<ProviderReviewItem>>((ref) async {
+  final repo = ref.watch(providerRepositoryProvider);
+  return repo.getReviews();
+});
+
+final providerReputationFutureProvider = FutureProvider.autoDispose<ProviderReputation>((ref) async {
+  final repo = ref.watch(providerRepositoryProvider);
+  return repo.getReputation();
 });

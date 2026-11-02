@@ -1,0 +1,114 @@
+services:
+  # -------------------------------------------------------------
+  # 1. Fastify API Web Service (HTTP & WebSockets)
+  # -------------------------------------------------------------
+  - type: web
+    name: localman-api
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: npm install && npm run build --workspace=@localman/constants --workspace=@localman/contracts --workspace=@localman/design-tokens && npm run build --workspace=@localman/api
+    preDeployCommand: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+    startCommand: npm run start --workspace=@localman/api
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0
+      - key: API_PREFIX
+        value: /api/v1
+      - key: DATABASE_URL
+        fromDatabase:
+          name: localman-postgres
+          property: connectionString
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: localman-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: localman-redis
+          property: port
+      - key: JWT_SECRET
+        generateValue: true
+      - key: BOOKING_OTP_PEPPER
+        generateValue: true
+      - key: SMS_GATEWAY_PROVIDER
+        value: mock
+      - key: SMS_GATEWAY_API_KEY
+        sync: false
+      - key: PAYMENT_GATEWAY_PROVIDER
+        value: mock
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: STORAGE_PROVIDER
+        value: s3
+      - key: S3_BUCKET_NAME
+        value: localman-documents
+      - key: S3_REGION
+        value: ap-south-1
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+
+  # -------------------------------------------------------------
+  # 2. Background Dispatch & Timer Worker
+  # -------------------------------------------------------------
+  - type: worker
+    name: localman-worker
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: npm install && npm run build --workspace=@localman/constants --workspace=@localman/contracts && npm run build --workspace=@localman/api
+    startCommand: npm run start --workspace=@localman/api
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: localman-postgres
+          property: connectionString
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: localman-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: localman-redis
+          property: port
+      - key: JWT_SECRET
+        fromService:
+          type: web
+          name: localman-api
+          envVarKey: JWT_SECRET
+      - key: BOOKING_OTP_PEPPER
+        fromService:
+          type: web
+          name: localman-api
+          envVarKey: BOOKING_OTP_PEPPER
+
+# ---------------------------------------------------------------
+# 3. Managed PostgreSQL Database with PostGIS Support
+# ---------------------------------------------------------------
+databases:
+  - name: localman-postgres
+    databaseName: localman_db
+    user: localman_user
+    plan: starter
+    region: singapore
+    postgresMajorVersion: 16
+

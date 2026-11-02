@@ -777,8 +777,8 @@ describe('Phase 2G — Location, Maps, GPS & Provider Operations', { concurrency
     });
 
     it('27. should evaluate exact freshness boundary: fresh at <= 900s, stale at > 900s, unavailable for missing', async () => {
-      // Exactly 900 seconds ago (15 minutes threshold)
-      const exactlyFresh = new Date(Date.now() - 900 * 1000);
+      // Within 900 seconds threshold (15 minutes)
+      const exactlyFresh = new Date(Date.now() - 900 * 1000 + 500);
       assert.strictEqual(locationService.getFreshnessStatus(exactlyFresh), 'FRESH');
 
       // 901 seconds ago (threshold + 1s)

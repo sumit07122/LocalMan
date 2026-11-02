@@ -55,8 +55,9 @@ class BookingConfirmationScreen extends ConsumerWidget {
           final serviceName = booking.serviceSnapshot?.name ?? 'Service Request';
           final addressSummary = booking.addressSnapshot != null
               ? '${booking.addressSnapshot!.addressLine1}, ${booking.addressSnapshot!.city}'
-              : 'Service Address';
-          final scheduleFormatted = booking.scheduledDate.toLocal().toString().split('.')[0];
+              : 'Address not provided';
+          final parsedDate = DateTime.tryParse(booking.scheduledDate)?.toLocal();
+          final scheduleFormatted = parsedDate != null ? parsedDate.toString().split('.')[0] : booking.scheduledDate;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),

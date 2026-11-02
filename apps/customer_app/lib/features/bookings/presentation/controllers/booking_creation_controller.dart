@@ -4,6 +4,7 @@ import '../../domain/booking_item.dart';
 import '../../domain/booking_request.dart';
 import '../../data/booking_repository.dart';
 import '../../../services/domain/service.dart';
+import '../../../services/domain/service_pricing.dart';
 
 class BookingCreationState {
   final ServiceItem? service;
@@ -44,35 +45,33 @@ class BookingCreationState {
     const gstRate = 0.18;
 
     switch (service!.pricing.pricingModel) {
-      case 'FIXED_PRICE': {
+      case PricingModelType.fixedPrice: {
         final base = service!.pricing.basePricePaisa;
         final tax = (base * gstRate).round();
         return base + tax;
       }
-      case 'HOURLY': {
+      case PricingModelType.hourly: {
         final rate = service!.pricing.hourlyRatePaisa ?? service!.pricing.basePricePaisa;
         final base = rate * hours;
         final tax = (base * gstRate).round();
         return base + tax;
       }
-      case 'INSPECTION_QUOTE': {
+      case PricingModelType.inspectionQuote: {
         final base = service!.pricing.inspectionFeePaisa ?? 0;
         final tax = (base * gstRate).round();
         return base + tax;
       }
-      case 'CUSTOM_QUOTE':
+      case PricingModelType.customQuote:
         return 0;
-      default:
-        return service!.pricing.basePricePaisa;
     }
   }
 
   String get displayEstimatedPrice {
     if (service == null) return '₹0';
-    if (service!.pricing.pricingModel == 'CUSTOM_QUOTE') {
+    if (service!.pricing.pricingModel == PricingModelType.customQuote) {
       return 'Quote Required';
     }
-    if (service!.pricing.pricingModel == 'INSPECTION_QUOTE') {
+    if (service!.pricing.pricingModel == PricingModelType.inspectionQuote) {
       return '₹${(estimatedTotalPaisa / 100).toStringAsFixed(0)} (Visiting Fee)';
     }
     return '₹${(estimatedTotalPaisa / 100).toStringAsFixed(0)}';
@@ -180,8 +179,8 @@ class BookingCreationNotifier extends StateNotifier<BookingCreationState> {
         jobDescription: state.jobDescription.trim(),
         scheduledDate: formattedDate,
         scheduledTimeSlot: state.selectedTimeSlot!,
-        pricingModel: state.service!.pricing.pricingModel,
-        hours: state.service!.pricing.pricingModel == 'HOURLY' ? state.hours : null,
+        pricingModel: state.service!.pricing.pricingModelKey,
+        hours: state.service!.pricing.pricingModel == PricingModelType.hourly ? state.hours : null,
         customerNotes: state.customerNotes.trim().isNotEmpty
             ? state.customerNotes.trim()
             : null,

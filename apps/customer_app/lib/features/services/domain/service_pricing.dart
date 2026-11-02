@@ -10,42 +10,43 @@ class ServicePricing {
   final int basePricePaisa;
   final int? hourlyRatePaisa;
   final int? inspectionFeePaisa;
+  final int? minimumHours;
   final bool isMaterialAllowed;
 
-  const ServicePricing({
-    required this.pricingModel,
-    required this.basePricePaisa,
-    this.hourlyRatePaisa,
-    this.inspectionFeePaisa,
-    this.isMaterialAllowed = true,
-  });
-
-  factory ServicePricing.fromJson(Map<String, dynamic> json) {
-    final rawModel = (json['pricingModel'] as String? ?? 'FIXED_PRICE').toUpperCase();
-    PricingModelType model;
-    switch (rawModel) {
+  static PricingModelType _parseModel(dynamic model) {
+    if (model is PricingModelType) return model;
+    final str = (model?.toString() ?? 'FIXED_PRICE').toUpperCase();
+    switch (str) {
       case 'HOURLY':
-        model = PricingModelType.hourly;
-        break;
+        return PricingModelType.hourly;
       case 'INSPECTION_QUOTE':
-        model = PricingModelType.inspectionQuote;
-        break;
+        return PricingModelType.inspectionQuote;
       case 'CUSTOM_QUOTE':
       case 'CUSTOMER_REQUEST_QUOTE':
-        model = PricingModelType.customQuote;
-        break;
+        return PricingModelType.customQuote;
       case 'FIXED_PRICE':
       case 'FIXED':
       default:
-        model = PricingModelType.fixedPrice;
-        break;
+        return PricingModelType.fixedPrice;
     }
+  }
 
+  ServicePricing({
+    required dynamic pricingModel,
+    this.basePricePaisa = 0,
+    this.hourlyRatePaisa,
+    this.inspectionFeePaisa,
+    this.minimumHours,
+    this.isMaterialAllowed = true,
+  }) : pricingModel = _parseModel(pricingModel);
+
+  factory ServicePricing.fromJson(Map<String, dynamic> json) {
     return ServicePricing(
-      pricingModel: model,
+      pricingModel: json['pricingModel'],
       basePricePaisa: (json['basePricePaisa'] as num?)?.toInt() ?? 0,
       hourlyRatePaisa: (json['hourlyRatePaisa'] as num?)?.toInt(),
       inspectionFeePaisa: (json['inspectionFeePaisa'] as num?)?.toInt(),
+      minimumHours: (json['minimumHours'] as num?)?.toInt(),
       isMaterialAllowed: json['isMaterialAllowed'] as bool? ?? true,
     );
   }
@@ -123,4 +124,24 @@ class ServicePricing {
         return 'Describe your requirement and verified local service partners will send competitive, itemized quotations for your review.';
     }
   }
+
+  bool get isFixedPrice => pricingModel == PricingModelType.fixedPrice;
+  bool get isHourly => pricingModel == PricingModelType.hourly;
+  bool get isInspectionQuote => pricingModel == PricingModelType.inspectionQuote;
+  bool get isCustomQuote => pricingModel == PricingModelType.customQuote;
+  String get displayPrice {
+    switch (pricingModel) {
+      case PricingModelType.fixedPrice:
+        return '₹${(basePricePaisa / 100).toStringAsFixed(2)}';
+      case PricingModelType.hourly:
+        final rate = hourlyRatePaisa ?? basePricePaisa;
+        return '₹${(rate / 100).toStringAsFixed(2)}/hr';
+      case PricingModelType.inspectionQuote:
+        final fee = inspectionFeePaisa ?? basePricePaisa;
+        return '₹${(fee / 100).toStringAsFixed(2)} Inspection';
+      case PricingModelType.customQuote:
+        return 'Quote Required';
+    }
+  }
+  String get explanation => customerExplanation;
 }

@@ -37,7 +37,7 @@ class BookingsListScreen extends ConsumerWidget {
           retryLabel: 'Try Again',
         ),
         data: (result) {
-          final bookings = result.items;
+          final bookings = result;
           if (bookings.isEmpty) {
             return EmptyStateView(
               icon: Icons.receipt_long_outlined,
@@ -86,7 +86,8 @@ class _BookingCard extends StatelessWidget {
     final addressLine = booking.addressSnapshot != null
         ? '${booking.addressSnapshot!.city}, ${booking.addressSnapshot!.postalCode}'
         : 'Address specified';
-    final dateFormatted = booking.scheduledDate.toLocal().toString().split(' ')[0];
+    final parsedDate = DateTime.tryParse(booking.scheduledDate)?.toLocal();
+    final dateFormatted = parsedDate != null ? parsedDate.toString().split(' ')[0] : booking.scheduledDate;
 
     return InkWell(
       onTap: onTap,

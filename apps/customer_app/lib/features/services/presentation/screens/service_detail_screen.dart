@@ -113,7 +113,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                       // Quick Attributes (Duration & Model Badges)
                       Row(
                         children: [
-                          if (service.formattedDuration != null) ...[
+                          if (service.formattedDuration.isNotEmpty) ...[
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 5),
@@ -332,75 +332,6 @@ class ServiceDetailScreen extends ConsumerWidget {
           );
         },
       ),
-    );
-  }
-
-  void _showPhase3CBookingNotice(BuildContext context, ServiceItem service) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.brandAccent.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.info_outline,
-                      color: AppTheme.brandAccent,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Booking Flow Notice',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.brandPrimary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'You selected "${service.name}".\n\nUnder Phase 3B architectural guidelines, service discovery and authoritative pricing are complete and verified. Booking creation, scheduling, and provider dispatch will be activated in Phase 3C.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade700,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.brandPrimary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Text('Understood'),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

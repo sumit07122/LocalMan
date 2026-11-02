@@ -190,6 +190,26 @@ export class NotificationService {
       data: { bookingNumber, type: 'BOOKING_CANCELLED' },
     });
   }
+
+  async notifyReviewReceived(providerUserId: string, providerId: string, bookingId: string, rating: number): Promise<void> {
+    await this.notifyUser(providerUserId, {
+      title: 'New Review Received',
+      body: `A customer has rated your service ${rating} / 5 stars. Check it out in your profile!`,
+      category: 'BOOKING',
+      data: { bookingId, rating: String(rating), type: 'REVIEW_RECEIVED' },
+    });
+    realtimeService.emitToProvider(providerId, 'REVIEW_CREATED', { bookingId, rating });
+  }
+
+  async notifyProviderResponseReceived(customerUserId: string, bookingId: string, providerName: string): Promise<void> {
+    await this.notifyUser(customerUserId, {
+      title: 'Professional Responded to Your Review',
+      body: `${providerName} has responded to your review.`,
+      category: 'BOOKING',
+      data: { bookingId, type: 'PROVIDER_RESPONDED_TO_REVIEW' },
+    });
+    realtimeService.emitToCustomer(customerUserId, 'PROVIDER_RESPONDED_TO_REVIEW', { bookingId });
+  }
 }
 
 export const notificationService = NotificationService.getInstance();

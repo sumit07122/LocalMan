@@ -18,6 +18,7 @@ import {
 } from '../../common/errors/app-error.js';
 import { generateBookingNumber, generateSecureOtp } from '../../common/utils/crypto.js';
 import { BookingFSM } from './booking-fsm.js';
+import { BookingOtpService } from './booking-otp.service.js';
 import { AuthenticatedUser } from '../../common/middleware/auth.middleware.js';
 import { dispatchService } from '../dispatch/dispatch.service.js';
 import { realtimeService } from '../realtime/realtime.service.js';
@@ -206,6 +207,7 @@ export class BookingService {
     };
 
     const startOtp = generateSecureOtp();
+    const startOtpHash = BookingOtpService.hashOtp(startOtp);
     const bookingNumber = generateBookingNumber();
 
     // 8. Transactional Atomic Creation
@@ -222,6 +224,7 @@ export class BookingService {
           scheduledDate: new Date(input.scheduledDate),
           scheduledTimeSlot: input.scheduledTimeSlot,
           startOtp,
+          startOtpHash,
           jobDescription: jobDescription || null,
           customerNotes: input.customerNotes || null,
           baseAmountPaisa,
@@ -307,6 +310,7 @@ export class BookingService {
       isAssignedProvider,
       isAdmin,
       startOtpExpected: booking.startOtp,
+      startOtpHashExpected: (booking as any).startOtpHash || undefined,
       startOtpSubmitted: input.startOtp,
       completionPhotos: input.completionPhotos,
     });
@@ -616,6 +620,7 @@ export class BookingService {
     };
 
     const sanitizedBooking: any = { ...booking };
+    delete sanitizedBooking.startOtpHash;
     if (!isCustomer && !isAdmin) {
       delete sanitizedBooking.startOtp;
       delete sanitizedBooking.completionOtp;

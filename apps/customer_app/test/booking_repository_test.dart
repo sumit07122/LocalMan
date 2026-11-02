@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:localman_customer/core/errors/api_error.dart';
 import 'package:localman_customer/core/errors/app_exception.dart';
 import 'package:localman_customer/features/bookings/data/booking_repository.dart';
 import 'package:localman_customer/features/bookings/domain/booking_item.dart';
@@ -7,6 +6,9 @@ import 'package:localman_customer/features/bookings/domain/booking_request.dart'
 import 'package:localman_customer/features/bookings/domain/booking_snapshots.dart';
 
 class MockBookingRepository implements IBookingRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
   bool shouldThrow401 = false;
   bool shouldThrow403 = false;
   bool shouldThrow404 = false;

@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localman_customer/core/errors/api_error.dart';
-import 'package:localman_customer/core/errors/app_exception.dart';
 import 'package:localman_customer/features/auth/domain/auth_session.dart';
 import 'package:localman_customer/features/auth/domain/user.dart';
 import 'package:localman_customer/features/addresses/domain/address.dart';

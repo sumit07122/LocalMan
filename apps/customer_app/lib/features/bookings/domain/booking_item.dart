@@ -163,23 +163,24 @@ class BookingItem {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  const BookingItem({
+  BookingItem({
     required this.id,
-    required this.bookingNumber,
-    required this.customerId,
+    this.bookingNumber = '',
+    this.customerId = '',
     this.providerId,
     required this.serviceId,
-    required this.addressId,
-    required this.currentStatus,
-    required this.pricingModel,
-    required this.scheduledDate,
-    required this.scheduledTimeSlot,
+    this.addressId = '',
+    String currentStatus = 'REQUESTED',
+    String? status,
+    this.pricingModel = 'FIXED_PRICE',
+    required dynamic scheduledDate,
+    this.scheduledTimeSlot = '10:00 - 12:00',
     this.startOtp,
     this.jobDescription,
     this.customerNotes,
-    required this.baseAmountPaisa,
-    required this.taxAmountPaisa,
-    required this.totalAmountPaisa,
+    this.baseAmountPaisa = 0,
+    this.taxAmountPaisa = 0,
+    this.totalAmountPaisa = 0,
     this.addressSnapshot,
     this.pricingSnapshot,
     this.serviceSnapshot,
@@ -189,7 +190,10 @@ class BookingItem {
     this.dispatchStatus,
     this.createdAt,
     this.updatedAt,
-  });
+  })  : currentStatus = status ?? currentStatus,
+        scheduledDate = scheduledDate is DateTime
+            ? scheduledDate.toIso8601String()
+            : scheduledDate.toString();
 
   // Backwards compatibility alias
   String get status => currentStatus;

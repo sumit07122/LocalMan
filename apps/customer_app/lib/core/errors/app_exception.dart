@@ -10,8 +10,15 @@ abstract class AppException implements Exception {
   String toString() => message;
 }
 
+class ApiValidationError {
+  final String field;
+  final String message;
+  const ApiValidationError({required this.field, required this.message});
+}
+
 class NetworkException extends AppException {
-  const NetworkException([String message = 'Network connection unavailable', ApiError? error])
+  final int? statusCode;
+  const NetworkException([String message = 'Network connection unavailable', ApiError? error, this.statusCode])
       : super(message, error);
 }
 
@@ -20,9 +27,43 @@ class UnauthorizedException extends AppException {
       : super(message, error);
 }
 
+class ForbiddenException extends AppException {
+  final int statusCode;
+  const ForbiddenException([String message = 'Forbidden', ApiError? error])
+      : statusCode = 403,
+        super(message, error);
+}
+
+class ConflictException extends AppException {
+  final int statusCode;
+  const ConflictException([String message = 'Conflict', ApiError? error])
+      : statusCode = 409,
+        super(message, error);
+}
+
 class ValidationException extends AppException {
-  const ValidationException(String message, [ApiError? error])
+  final List<ApiValidationError>? errors;
+  const ValidationException(String message, {this.errors, ApiError? error})
       : super(message, error);
+}
+
+class NotFoundException extends AppException {
+  final int statusCode;
+  const NotFoundException([String message = 'Resource not found', ApiError? error])
+      : statusCode = 404,
+        super(message, error);
+}
+
+class ApiException extends AppException {
+  final int? statusCode;
+  final String? code;
+
+  const ApiException({
+    required String message,
+    this.statusCode,
+    this.code,
+    ApiError? apiError,
+  }) : super(message, apiError);
 }
 
 class ServerException extends AppException {

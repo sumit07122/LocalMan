@@ -12,15 +12,15 @@ class BookingAddressSnapshot {
 
   const BookingAddressSnapshot({
     required this.id,
-    required this.label,
+    this.label = 'Home',
     required this.addressLine1,
     this.addressLine2,
     this.landmark,
     required this.city,
     required this.state,
     required this.postalCode,
-    required this.latitude,
-    required this.longitude,
+    this.latitude = 0.0,
+    this.longitude = 0.0,
   });
 
   String get formattedAddress {
@@ -71,6 +71,10 @@ class BookingPricingSnapshot {
   final int? requestedHours;
   final double taxRatePercent;
   final bool isQuoteRequired;
+  final int platformFeePaisa;
+  final int totalAmountPaisa;
+  final int? minimumHours;
+  final int? estimatedHours;
 
   const BookingPricingSnapshot({
     required this.pricingModel,
@@ -78,19 +82,28 @@ class BookingPricingSnapshot {
     this.hourlyRatePaisa,
     this.inspectionFeePaisa,
     this.requestedHours,
-    required this.taxRatePercent,
-    required this.isQuoteRequired,
+    this.taxRatePercent = 18.0,
+    this.isQuoteRequired = false,
+    this.platformFeePaisa = 0,
+    this.totalAmountPaisa = 0,
+    this.minimumHours,
+    this.estimatedHours,
   });
 
   factory BookingPricingSnapshot.fromJson(Map<String, dynamic> json) {
+    final basePrice = (json['basePricePaisa'] as num?)?.toInt() ?? 0;
     return BookingPricingSnapshot(
       pricingModel: json['pricingModel'] as String? ?? 'FIXED_PRICE',
-      basePricePaisa: (json['basePricePaisa'] as num?)?.toInt() ?? 0,
+      basePricePaisa: basePrice,
       hourlyRatePaisa: (json['hourlyRatePaisa'] as num?)?.toInt(),
       inspectionFeePaisa: (json['inspectionFeePaisa'] as num?)?.toInt(),
       requestedHours: (json['requestedHours'] as num?)?.toInt(),
       taxRatePercent: (json['taxRatePercent'] as num?)?.toDouble() ?? 18.0,
       isQuoteRequired: json['isQuoteRequired'] as bool? ?? false,
+      platformFeePaisa: (json['platformFeePaisa'] as num?)?.toInt() ?? 0,
+      totalAmountPaisa: (json['totalAmountPaisa'] as num?)?.toInt() ?? basePrice,
+      minimumHours: (json['minimumHours'] as num?)?.toInt() ?? (json['requestedHours'] as num?)?.toInt(),
+      estimatedHours: (json['estimatedHours'] as num?)?.toInt() ?? (json['requestedHours'] as num?)?.toInt(),
     );
   }
 
@@ -102,6 +115,10 @@ class BookingPricingSnapshot {
         'requestedHours': requestedHours,
         'taxRatePercent': taxRatePercent,
         'isQuoteRequired': isQuoteRequired,
+        'platformFeePaisa': platformFeePaisa,
+        'totalAmountPaisa': totalAmountPaisa,
+        if (minimumHours != null) 'minimumHours': minimumHours,
+        if (estimatedHours != null) 'estimatedHours': estimatedHours,
       };
 }
 
@@ -116,10 +133,10 @@ class BookingServiceSnapshot {
   const BookingServiceSnapshot({
     required this.id,
     required this.name,
-    required this.slug,
-    required this.categoryId,
-    required this.categoryName,
-    required this.estimatedDurationMinutes,
+    this.slug = '',
+    this.categoryId = '',
+    this.categoryName = '',
+    this.estimatedDurationMinutes = 60,
   });
 
   factory BookingServiceSnapshot.fromJson(Map<String, dynamic> json) {

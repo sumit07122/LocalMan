@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/loading_indicator.dart';
 import '../../../../shared/widgets/error_view.dart';
-import '../../auth/presentation/controllers/auth_provider.dart';
+import '../../../auth/presentation/controllers/auth_provider.dart';
 import '../controllers/profile_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {

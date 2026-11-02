@@ -65,4 +65,36 @@ class ServiceCategoryItem {
     if (children.isNotEmpty) 'children': children.map((c) => c.toJson()).toList(),
     if (services.isNotEmpty) 'services': services.map((s) => s.toJson()).toList(),
   };
+
+  ServiceCategoryItem copyWith({
+    String? id,
+    String? parentId,
+    String? name,
+    String? slug,
+    String? iconUrl,
+    String? imageUrl,
+    int? displayOrder,
+    bool? isActive,
+    int? serviceCount,
+    List<ServiceCategoryItem>? children,
+    List<ServiceItem>? services,
+  }) {
+    return ServiceCategoryItem(
+      id: id ?? this.id,
+      parentId: parentId ?? this.parentId,
+      name: name ?? this.name,
+      slug: slug ?? this.slug,
+      iconUrl: iconUrl ?? this.iconUrl,
+      imageUrl: imageUrl ?? this.imageUrl,
+      displayOrder: displayOrder ?? this.displayOrder,
+      isActive: isActive ?? this.isActive,
+      serviceCount: serviceCount ?? this.serviceCount,
+      children: children ?? this.children,
+      services: services ?? this.services,
+    );
+  }
+
+  String? get icon => iconUrl;
+  String? get description => null;
+  int get servicesCount => serviceCount;
 }

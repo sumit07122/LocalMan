@@ -17,19 +17,17 @@ class MockCatalogRepository implements ICatalogRepository {
       id: 'cat_plumbing',
       name: 'Plumbing',
       slug: 'plumbing',
-      description: 'Pipes and taps repair',
       isActive: true,
-      sortOrder: 1,
-      servicesCount: 2,
+      displayOrder: 1,
+      serviceCount: 2,
     ),
     const ServiceCategoryItem(
       id: 'cat_electrician',
       name: 'Electrician',
       slug: 'electrician',
-      description: 'Switches and wiring',
       isActive: true,
-      sortOrder: 2,
-      servicesCount: 1,
+      displayOrder: 2,
+      serviceCount: 1,
     ),
   ];
 
@@ -63,30 +61,29 @@ class MockCatalogRepository implements ICatalogRepository {
 
   void _checkErrors() {
     if (shouldThrow401) {
-      throw ApiException(
+      throw const ApiException(
         message: 'Authentication session expired',
         statusCode: 401,
-        errorCode: 'UNAUTHORIZED',
+        code: 'UNAUTHORIZED',
       );
     }
     if (shouldThrow422) {
-      throw ApiException(
+      throw const ApiException(
         message: 'Invalid category filter parameter',
         statusCode: 422,
-        errorCode: 'VALIDATION_ERROR',
-        details: {'field': 'categoryId'},
+        code: 'VALIDATION_ERROR',
       );
     }
     if (shouldTimeout) {
-      throw const NetworkException(
-        message: 'The request timed out. Please check your connection.',
-        statusCode: 408,
+      throw NetworkException(
+        'The request timed out. Please check your connection.',
+        ApiError.timeout(),
       );
     }
     if (shouldBeOffline) {
-      throw const NetworkException(
-        message: 'No internet connection. Please verify your network.',
-        statusCode: 0,
+      throw NetworkException(
+        'No internet connection. Please verify your network.',
+        ApiError.network(),
       );
     }
   }
@@ -174,8 +171,8 @@ void main() {
       final category = await repository.getCategoryById('cat_plumbing');
       expect(category.id, 'cat_plumbing');
       expect(category.services, isNotNull);
-      expect(category.services!.length, 2);
-      expect(category.services![0].name, 'Tap Leak Repair');
+      expect(category.services.length, 2);
+      expect(category.services[0].name, 'Tap Leak Repair');
     });
 
     test('3. searchServices filters by text query and category', () async {
@@ -188,7 +185,7 @@ void main() {
     test('4. searchServices filters by pricing model', () async {
       final result = await repository.searchServices(pricingModel: 'HOURLY');
       expect(result.services.length, 1);
-      expect(result.services.first.pricing.pricingModel, 'HOURLY');
+      expect(result.services.first.pricing.pricingModelKey, 'HOURLY');
       expect(result.services.first.name, 'Drain Unclogging');
     });
 
@@ -196,7 +193,7 @@ void main() {
       final service = await repository.getServiceById('srv_tap_01');
       expect(service.id, 'srv_tap_01');
       expect(service.name, 'Tap Leak Repair');
-      expect(service.pricing.displayPrice, '₹499');
+      expect(service.pricing.formattedPrice, '₹499');
     });
 
     test('6. Repository handles 401 Unauthorized correctly', () async {

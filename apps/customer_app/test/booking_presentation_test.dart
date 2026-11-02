@@ -1,7 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localman_customer/features/bookings/domain/booking_item.dart';
-import 'package:localman_customer/features/bookings/domain/booking_snapshots.dart';
 import 'package:localman_customer/features/services/domain/service.dart';
 import 'package:localman_customer/features/services/domain/service_pricing.dart';
 

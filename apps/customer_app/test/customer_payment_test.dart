@@ -187,7 +187,7 @@ void main() {
 
       final totalPaisa = items.fold<int>(0, (sum, item) => sum + item.amountPaisa);
       expect(totalPaisa, 32391);
-      expect(totalPaisa is int, isTrue);
+      expect(totalPaisa, isA<int>());
     });
   });
 }

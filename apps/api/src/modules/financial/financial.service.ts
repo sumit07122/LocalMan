@@ -322,16 +322,25 @@ export class FinancialService {
       return null;
     }
 
-    // Atomically decrement provider wallet
+    // Atomically decrement provider wallet (safeguarded against negative underflow)
     const wallet = await this.getOrCreateWallet(providerId, db);
+    const actualRecoveredPaisa = Math.min(wallet.availableBalancePaisa, debitPaisa);
+    const unrecoveredLiabilityPaisa = debitPaisa - actualRecoveredPaisa;
+
     const updatedWallet = await db.providerWallet.update({
       where: { id: wallet.id },
       data: {
         availableBalancePaisa: {
-          decrement: debitPaisa,
+          decrement: actualRecoveredPaisa,
         },
       },
     });
+
+    if (unrecoveredLiabilityPaisa > 0) {
+      console.warn(
+        `[FINANCIAL_ALERT] Provider ${providerId} wallet available balance (₹${(wallet.availableBalancePaisa / 100).toFixed(2)}) is insufficient for full refund clawback of ₹${(debitPaisa / 100).toFixed(2)}. Unrecovered liability: ₹${(unrecoveredLiabilityPaisa / 100).toFixed(2)} on booking ${booking.bookingNumber}.`
+      );
+    }
 
     // Handle associated pending payout if exists
     const pendingPayout = await db.providerPayout.findFirst({
@@ -362,34 +371,42 @@ export class FinancialService {
       }
     }
 
-    // Append immutable WalletLedgerEntry
-    const ledgerEntry = await db.walletLedgerEntry.create({
-      data: {
-        walletId: wallet.id,
-        providerId,
-        bookingId,
-        payoutId: pendingPayout?.id || null,
-        entryType: 'REFUND',
-        direction: 'DEBIT',
-        amountPaisa: debitPaisa,
-        currency: 'INR',
-        resultingAvailablePaisa: updatedWallet.availableBalancePaisa,
-        resultingPendingPaisa: updatedWallet.pendingBalancePaisa,
-        idempotencyKey: `ledger_refund_${booking.id}_${Date.now()}`,
-        description: `Refund adjustment for booking ${booking.bookingNumber}: -₹${(debitPaisa / 100).toFixed(2)} (${reason})`,
-        metadata: {
-          refundAmountPaisa,
-          debitPaisa,
-          reason,
-          adminUserId: adminUserId || null,
+    // Append immutable WalletLedgerEntry only if actualRecoveredPaisa > 0 (to satisfy amount_paisa > 0 constraint)
+    let ledgerEntry = null;
+    if (actualRecoveredPaisa > 0) {
+      ledgerEntry = await db.walletLedgerEntry.create({
+        data: {
+          walletId: wallet.id,
+          providerId,
+          bookingId,
+          payoutId: pendingPayout?.id || null,
+          entryType: 'REFUND',
+          direction: 'DEBIT',
+          amountPaisa: actualRecoveredPaisa,
+          currency: 'INR',
+          resultingAvailablePaisa: updatedWallet.availableBalancePaisa,
+          resultingPendingPaisa: updatedWallet.pendingBalancePaisa,
+          idempotencyKey: `ledger_refund_${booking.id}_${Date.now()}`,
+          description: `Refund adjustment for booking ${booking.bookingNumber}: -₹${(actualRecoveredPaisa / 100).toFixed(2)} (${reason})${unrecoveredLiabilityPaisa > 0 ? ` [Unrecovered liability: ₹${(unrecoveredLiabilityPaisa / 100).toFixed(2)}]` : ''}`,
+          metadata: {
+            refundAmountPaisa,
+            requestedDebitPaisa: debitPaisa,
+            actualRecoveredPaisa,
+            unrecoveredLiabilityPaisa,
+            isFullyRecovered: unrecoveredLiabilityPaisa === 0,
+            reason,
+            adminUserId: adminUserId || null,
+          },
         },
-      },
-    });
+      });
+    }
 
     return {
       wallet: updatedWallet,
       ledgerEntry,
       debitPaisa,
+      actualRecoveredPaisa,
+      unrecoveredLiabilityPaisa,
     };
   }
 

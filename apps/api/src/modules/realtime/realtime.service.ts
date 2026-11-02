@@ -34,6 +34,10 @@ export type RealtimeEventType =
   | 'QUOTE_REJECTED'
   | 'MESSAGE_SENT'
   | 'CONVERSATION_READ'
+  | 'REVIEW_CREATED'
+  | 'REVIEW_PUBLISHED'
+  | 'PROVIDER_RESPONDED_TO_REVIEW'
+  | 'REVIEW_MODERATED'
   | 'SYSTEM_MESSAGE';
 
 export interface RealtimeEvent<T = any> {

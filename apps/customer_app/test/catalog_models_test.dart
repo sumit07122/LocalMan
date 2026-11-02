@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localman_customer/features/services/domain/category.dart';
 import 'package:localman_customer/features/services/domain/service.dart';
-import 'package:localman_customer/features/services/domain/service_pricing.dart';
 import 'package:localman_customer/features/services/domain/catalog_pagination.dart';
 
 void main() {
@@ -39,9 +38,9 @@ void main() {
       expect(category.isActive, true);
       expect(category.servicesCount, 8);
       expect(category.children, isNotNull);
-      expect(category.children!.length, 1);
-      expect(category.children!.first.id, 'cat_leak_repair');
-      expect(category.children!.first.parentId, 'cat_plumbing');
+      expect(category.children.length, 1);
+      expect(category.children.first.id, 'cat_leak_repair');
+      expect(category.children.first.parentId, 'cat_plumbing');
     });
 
     test('2. ServiceItem parses FIXED_PRICE model with integer paisa correctly', () {

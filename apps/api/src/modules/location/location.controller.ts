@@ -89,6 +89,38 @@ export class LocationController {
   };
 
   /**
+   * GET /api/v1/bookings/:id/map-state
+   * Consolidated live map state machine for Customer, Provider, and Admin.
+   */
+  getBookingMapState = async (
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.user) throw new UnauthorizedError();
+    const result = await this.service.getBookingMapState(
+      request.params.id,
+      request.user
+    );
+    return sendSuccess(reply, result, 200);
+  };
+
+  /**
+   * GET /api/v1/bookings/:id/eta
+   * Server-authoritative ETA and routing distance for active bookings.
+   */
+  getBookingEta = async (
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.user) throw new UnauthorizedError();
+    const result = await this.service.getBookingEta(
+      request.params.id,
+      request.user
+    );
+    return sendSuccess(reply, result, 200);
+  };
+
+  /**
    * POST /api/v1/admin/location/prune
    * Retention policy log pruner for administrators.
    */

@@ -6,7 +6,11 @@ import {
   CustomerTrackingLocationResponse,
   LocationFreshnessStatus,
   ProviderOperationalStatus,
+  LiveMapState,
+  LiveMapStateResponse,
+  BookingEtaResponse,
 } from '@localman/contracts';
+import { NEAR_DESTINATION_THRESHOLD_METERS } from '@localman/constants';
 import {
   NotFoundError,
   ValidationError,
@@ -121,6 +125,9 @@ export class LocationService {
     if (isNaN(input.longitude) || input.longitude < -180 || input.longitude > 180) {
       throw new ValidationError('Longitude must be between -180 and 180 degrees.');
     }
+    if (input.latitude === 0 && input.longitude === 0) {
+      throw new ValidationError('Coordinates (0,0) are invalid placeholder coordinates.');
+    }
     if (input.accuracy !== undefined && (isNaN(input.accuracy) || input.accuracy <= 0 || input.accuracy > 5000)) {
       throw new ValidationError('Accuracy must be greater than 0 and at most 5000 meters.');
     }
@@ -129,6 +136,20 @@ export class LocationService {
     }
     if (input.heading !== undefined && (isNaN(input.heading) || input.heading < 0 || input.heading > 360)) {
       throw new ValidationError('Heading must be between 0 and 360 degrees.');
+    }
+
+    // Security IDOR check: if bookingId is supplied, ensure it belongs to this provider
+    if (input.bookingId) {
+      const isMyBooking = provider.bookings.some((b) => b.id === input.bookingId);
+      if (!isMyBooking) {
+        const targetBooking = await prisma.booking.findUnique({
+          where: { id: input.bookingId },
+          select: { id: true, providerId: true },
+        });
+        if (targetBooking && targetBooking.providerId !== provider.id) {
+          throw new ForbiddenError('You are not assigned to this booking.');
+        }
+      }
     }
 
     // 3. Timestamp Sanity & Safe Server Authority
@@ -398,6 +419,225 @@ export class LocationService {
       etaMinutes,
       distanceMeters,
       isRealTimeRouting,
+    };
+  }
+
+  /**
+   * Authoritative Live Map State Machine for Customer, Assigned Provider, and Admin.
+   * Derives state from booking FSM, provider assignment, GPS freshness, and proximity.
+   * Coordinate privacy is strictly preserved: coordinates are nullified unless tracking
+   * is permitted (PROVIDER_ON_THE_WAY or ARRIVED) and GPS signal is FRESH.
+   */
+  async getBookingMapState(
+    bookingId: string,
+    requestUser: { id: string; roles: string[] }
+  ): Promise<LiveMapStateResponse> {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        provider: {
+          include: {
+            user: { select: { fullName: true, avatarUrl: true, phoneNumber: true } },
+          },
+        },
+        address: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundError('Booking not found');
+    }
+
+    const isCustomer = booking.customerId === requestUser.id;
+    const isAssignedProvider =
+      booking.provider?.userId === requestUser.id || booking.providerId === requestUser.id;
+    const isAdmin =
+      requestUser.roles.includes('ADMIN') || requestUser.roles.includes('CITY_MANAGER');
+
+    if (!isCustomer && !isAssignedProvider && !isAdmin) {
+      throw new ForbiddenError('You are not authorized to access live map state for this booking.');
+    }
+
+    // Tracking is permitted ONLY during PROVIDER_ON_THE_WAY and ARRIVED
+    const isTrackingPermitted =
+      booking.currentStatus === 'PROVIDER_ON_THE_WAY' || booking.currentStatus === 'ARRIVED';
+
+    const provider = booking.provider;
+    const destination = booking.address
+      ? {
+          addressLine1: booking.address.addressLine1,
+          addressLine2: booking.address.addressLine2 || null,
+          landmark: booking.address.landmark || null,
+          city: booking.address.city,
+          state: booking.address.state,
+          postalCode: booking.address.postalCode,
+          latitude: booking.address.latitude,
+          longitude: booking.address.longitude,
+        }
+      : null;
+
+    const providerSummary = provider
+      ? {
+          id: provider.id,
+          businessName: provider.businessName || null,
+          fullName: provider.user?.fullName || null,
+          avatarUrl: provider.user?.avatarUrl || null,
+          phoneNumber: provider.user?.phoneNumber || null,
+          ratingAverage: Number(provider.ratingAverage) || 5.0,
+          experienceYears: provider.experienceYears,
+        }
+      : null;
+
+    let mapState: LiveMapState = 'SEARCHING';
+    let isNearDestination = false;
+    let route: any = null;
+    let providerLocation: any = null;
+
+    const cancelledStatuses = ['CANCELLED', 'NO_SHOW', 'REJECTED', 'EXPIRED'];
+    const completedStatuses = ['JOB_COMPLETED', 'PAYMENT_PENDING', 'PAYMENT_SETTLED', 'REVIEWED'];
+
+    if (cancelledStatuses.includes(booking.currentStatus)) {
+      mapState = 'BOOKING_CANCELLED';
+    } else if (completedStatuses.includes(booking.currentStatus)) {
+      mapState = 'BOOKING_COMPLETED';
+    } else if (booking.currentStatus === 'JOB_STARTED' || booking.currentStatus === 'JOB_EXTENDED') {
+      // Job has started: GPS tracking is stopped to preserve provider privacy on-site
+      mapState = 'TRACKING_STOPPED_JOB_STARTED';
+    } else if (!provider) {
+      mapState = 'SEARCHING';
+    } else if (
+      booking.currentStatus === 'REQUESTED' ||
+      booking.currentStatus === 'CONFIRMED' ||
+      booking.currentStatus === 'PROVIDER_ACCEPTED'
+    ) {
+      mapState = 'PROVIDER_ASSIGNED_LOCATION_UNAVAILABLE';
+    } else if (booking.currentStatus === 'ARRIVED') {
+      mapState = 'PROVIDER_ARRIVED';
+      isNearDestination = true;
+      const freshness = this.getFreshnessStatus(provider.lastLocationAt);
+      if (
+        freshness === 'FRESH' &&
+        provider.currentLatitude !== null &&
+        provider.currentLongitude !== null
+      ) {
+        providerLocation = {
+          latitude: provider.currentLatitude,
+          longitude: provider.currentLongitude,
+          heading: provider.currentHeading,
+          speed: provider.currentSpeed,
+          accuracy: provider.currentAccuracyMeters,
+          lastLocationAt: provider.lastLocationAt?.toISOString() || null,
+          freshnessStatus: freshness,
+        };
+      } else {
+        providerLocation = {
+          latitude: null,
+          longitude: null,
+          heading: null,
+          speed: null,
+          accuracy: null,
+          lastLocationAt: provider.lastLocationAt?.toISOString() || null,
+          freshnessStatus: freshness,
+        };
+      }
+    } else if (booking.currentStatus === 'PROVIDER_ON_THE_WAY') {
+      const freshness = this.getFreshnessStatus(provider.lastLocationAt);
+      const hasCoords =
+        provider.currentLatitude !== null && provider.currentLongitude !== null;
+
+      if (!hasCoords || freshness === 'UNAVAILABLE') {
+        mapState = 'LOCATION_UNAVAILABLE';
+        providerLocation = {
+          latitude: null,
+          longitude: null,
+          heading: null,
+          speed: null,
+          accuracy: null,
+          lastLocationAt: provider.lastLocationAt?.toISOString() || null,
+          freshnessStatus: 'UNAVAILABLE',
+        };
+      } else if (freshness === 'STALE') {
+        mapState = 'LOCATION_STALE';
+        providerLocation = {
+          latitude: null,
+          longitude: null,
+          heading: null,
+          speed: null,
+          accuracy: null,
+          lastLocationAt: provider.lastLocationAt?.toISOString() || null,
+          freshnessStatus: 'STALE',
+        };
+      } else {
+        // Signal is FRESH and coordinates are present
+        providerLocation = {
+          latitude: provider.currentLatitude,
+          longitude: provider.currentLongitude,
+          heading: provider.currentHeading,
+          speed: provider.currentSpeed,
+          accuracy: provider.currentAccuracyMeters,
+          lastLocationAt: provider.lastLocationAt?.toISOString() || null,
+          freshnessStatus: freshness,
+        };
+
+        if (destination?.latitude && destination?.longitude) {
+          route = await googleMapsService.calculateRoute(
+            { lat: provider.currentLatitude!, lng: provider.currentLongitude! },
+            { lat: destination.latitude, lng: destination.longitude }
+          );
+
+          if (
+            route.distanceMeters !== null &&
+            route.distanceMeters <= NEAR_DESTINATION_THRESHOLD_METERS
+          ) {
+            isNearDestination = true;
+            mapState = 'PROVIDER_NEAR_DESTINATION';
+          } else {
+            mapState = 'PROVIDER_ON_THE_WAY';
+          }
+        } else {
+          mapState = 'PROVIDER_ON_THE_WAY';
+        }
+      }
+    }
+
+    return {
+      bookingId: booking.id,
+      bookingStatus: booking.currentStatus,
+      mapState,
+      isTrackingPermitted,
+      isNearDestination,
+      nearDestinationThresholdMeters: NEAR_DESTINATION_THRESHOLD_METERS,
+      destination,
+      provider: providerSummary,
+      providerLocation,
+      route,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Authoritative ETA & Distance retrieval for active bookings.
+   */
+  async getBookingEta(
+    bookingId: string,
+    requestUser: { id: string; roles: string[] }
+  ): Promise<BookingEtaResponse> {
+    const mapState = await this.getBookingMapState(bookingId, requestUser);
+
+    return {
+      bookingId: mapState.bookingId,
+      bookingStatus: mapState.bookingStatus,
+      isTrackingPermitted: mapState.isTrackingPermitted,
+      isNearDestination: mapState.isNearDestination,
+      distanceMeters: mapState.route?.distanceMeters ?? null,
+      durationSeconds: mapState.route?.durationSeconds ?? null,
+      etaMinutes: mapState.route?.etaMinutes ?? null,
+      isRealTimeRouting: mapState.route?.isRealTimeRouting ?? false,
+      routingStatus:
+        mapState.route?.status ??
+        (mapState.isTrackingPermitted ? 'FALLBACK_STRAIGHT_LINE' : 'NOT_TRACKABLE'),
+      freshnessStatus: mapState.providerLocation?.freshnessStatus ?? 'UNAVAILABLE',
+      timestamp: mapState.timestamp,
     };
   }
 

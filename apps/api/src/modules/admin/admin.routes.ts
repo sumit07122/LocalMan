@@ -3,6 +3,7 @@ import { AdminController } from './admin.controller.js';
 import { disputeController } from '../disputes/dispute.controller.js';
 import { quoteController } from '../quotes/quote.controller.js';
 import { chatController } from '../chat/chat.controller.js';
+import { reviewController } from '../reviews/review.controller.js';
 import { authenticate } from '../../common/middleware/auth.middleware.js';
 import { requireRoles } from '../../common/middleware/rbac.middleware.js';
 
@@ -45,4 +46,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   // Phase 3I: Chat Oversight
   fastify.get('/bookings/:bookingId/messages', chatController.adminGetMessages);
+
+  // Phase 3J: Review Moderation Oversight (ADMIN & CITY_MANAGER only)
+  fastify.get('/reviews', { preHandler: requireRoles(['ADMIN', 'CITY_MANAGER']) }, reviewController.adminListReviews);
+  fastify.get('/reviews/:reviewId', { preHandler: requireRoles(['ADMIN', 'CITY_MANAGER']) }, reviewController.adminGetReviewDetails);
+  fastify.patch('/reviews/:reviewId/moderate', { preHandler: requireRoles(['ADMIN', 'CITY_MANAGER']) }, reviewController.adminModerateReview);
 }

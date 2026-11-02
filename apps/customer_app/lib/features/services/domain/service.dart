@@ -1,5 +1,11 @@
 import 'service_pricing.dart';
 
+class CategorySummary {
+  final String id;
+  final String name;
+  const CategorySummary({required this.id, required this.name});
+}
+
 class ServiceItem {
   final String id;
   final String categoryId;
@@ -13,6 +19,8 @@ class ServiceItem {
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+
+  CategorySummary? get category => categoryName != null ? CategorySummary(id: categoryId, name: categoryName!) : null;
 
   const ServiceItem({
     required this.id,

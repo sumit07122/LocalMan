@@ -381,7 +381,7 @@ class _ServiceOverviewCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (service.formattedDuration != null)
+                    if (service.formattedDuration.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),

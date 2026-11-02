@@ -8,6 +8,7 @@ import '../../features/dashboard/presentation/screens/provider_dashboard_screen.
 import '../../features/jobs/presentation/screens/active_job_execution_screen.dart';
 import '../../features/kyc/presentation/screens/provider_kyc_screen.dart';
 import '../../features/wallet/presentation/screens/provider_wallet_screen.dart';
+import '../../features/reviews/presentation/screens/provider_reputation_screen.dart';
 
 final providerRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authNotifierProvider);
@@ -79,6 +80,11 @@ final providerRouterProvider = Provider<GoRouter>((ref) {
         path: '/wallet',
         name: 'wallet',
         builder: (context, state) => const ProviderWalletScreen(),
+      ),
+      GoRoute(
+        path: '/reputation',
+        name: 'reputation',
+        builder: (context, state) => const ProviderReputationScreen(),
       ),
     ],
   );

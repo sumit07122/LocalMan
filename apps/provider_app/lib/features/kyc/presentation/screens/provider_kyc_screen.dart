@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../dashboard/data/provider_repository.dart';
+import '../../../dashboard/data/provider_repository.dart';
 
 class ProviderKycScreen extends ConsumerStatefulWidget {
   const ProviderKycScreen({super.key});
@@ -20,7 +20,6 @@ class _ProviderKycScreenState extends ConsumerState<ProviderKycScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
-  String? _errorMessage;
   ProviderProfileData? _profile;
 
   @override
@@ -32,7 +31,6 @@ class _ProviderKycScreenState extends ConsumerState<ProviderKycScreen> {
   Future<void> _loadProfile() async {
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
     });
 
     try {
@@ -56,7 +54,6 @@ class _ProviderKycScreenState extends ConsumerState<ProviderKycScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
           _isLoading = false;
         });
       }

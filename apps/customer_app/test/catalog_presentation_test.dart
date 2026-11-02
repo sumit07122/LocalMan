@@ -1,11 +1,7 @@
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import 'package:localman_customer/features/services/domain/category.dart';
-import 'package:localman_customer/features/services/domain/service.dart';
 import 'package:localman_customer/features/services/domain/service_pricing.dart';
-import 'package:localman_customer/features/services/presentation/screens/category_services_screen.dart';
-import 'package:localman_customer/features/services/presentation/screens/service_detail_screen.dart';
 import 'package:localman_customer/shared/widgets/empty_state_view.dart';
 import 'package:localman_customer/shared/widgets/error_view.dart';
 import 'package:localman_customer/shared/widgets/loading_indicator.dart';
@@ -68,52 +64,54 @@ void main() {
     });
 
     test('4. FIXED_PRICE model displays fixed price and clear explanation', () {
-      const pricing = ServicePricing(
-        pricingModel: 'FIXED_PRICE',
+      final pricing = ServicePricing(
+        pricingModel: PricingModelType.fixedPrice,
         basePricePaisa: 49900,
       );
 
-      expect(pricing.displayPrice, '₹499');
+      expect(pricing.formattedPrice, '₹499');
       expect(pricing.pricingModelBadge, 'Fixed Price');
-      expect(pricing.explanation, contains('Fixed upfront price'));
+      expect(pricing.customerExplanation, contains('fixed and confirmed'));
     });
 
     test('5. HOURLY model displays hourly rate and time explanation', () {
-      const pricing = ServicePricing(
-        pricingModel: 'HOURLY',
+      final pricing = ServicePricing(
+        pricingModel: PricingModelType.hourly,
+        basePricePaisa: 29900,
         hourlyRatePaisa: 29900,
-        minimumHours: 1,
       );
 
-      expect(pricing.displayPrice, '₹299/hr');
-      expect(pricing.pricingModelBadge, 'Hourly Rate');
-      expect(pricing.explanation, contains('Charged by time'));
+      expect(pricing.formattedPrice, '₹299/hr');
+      expect(pricing.pricingModelBadge, 'Charged by Time');
+      expect(pricing.customerExplanation, contains('actual service duration'));
     });
 
     test('6. INSPECTION_QUOTE displays inspection notice and visit fee', () {
-      const pricing = ServicePricing(
-        pricingModel: 'INSPECTION_QUOTE',
+      final pricing = ServicePricing(
+        pricingModel: PricingModelType.inspectionQuote,
+        basePricePaisa: 0,
         inspectionFeePaisa: 9900,
       );
 
-      expect(pricing.displayPrice, 'Inspection Quote');
-      expect(pricing.pricingModelBadge, 'Inspection Quote');
+      expect(pricing.formattedPrice, '₹99 inspection visit fee');
+      expect(pricing.pricingModelBadge, 'Inspection Required');
       expect(
-        pricing.explanation,
-        'Inspection required — final price determined after on-site professional inspection.',
+        pricing.customerExplanation,
+        contains('inspect the problem'),
       );
     });
 
     test('7. CUSTOM_QUOTE displays request quote notice', () {
-      const pricing = ServicePricing(
-        pricingModel: 'CUSTOM_QUOTE',
+      final pricing = ServicePricing(
+        pricingModel: PricingModelType.customQuote,
+        basePricePaisa: 0,
       );
 
-      expect(pricing.displayPrice, 'Request Quote');
-      expect(pricing.pricingModelBadge, 'Quote Based');
+      expect(pricing.formattedPrice, 'Receive provider quotes');
+      expect(pricing.pricingModelBadge, 'Quotes on Request');
       expect(
-        pricing.explanation,
-        'Request the service and receive competitive quotes from verified local providers.',
+        pricing.customerExplanation,
+        contains('competitive, itemized quotations'),
       );
     });
 

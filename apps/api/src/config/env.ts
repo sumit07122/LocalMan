@@ -29,9 +29,15 @@ const envSchema = z
     RAZORPAY_KEY_SECRET: z.string().default('rzp_secret_example'),
     RAZORPAY_WEBHOOK_SECRET: z.string().default('rzp_webhook_secret_example'),
 
+    BOOKING_OTP_PEPPER: z.string().default('localman_secure_booking_otp_pepper_secret_2026'),
+
     STORAGE_PROVIDER: z.enum(['mock', 's3', 'r2']).default('mock'),
     S3_BUCKET_NAME: z.string().default('localman-documents'),
     S3_REGION: z.string().default('ap-south-1'),
+    S3_ENDPOINT: z.string().optional(),
+    S3_ACCESS_KEY_ID: z.string().default('mock_access_key'),
+    S3_SECRET_ACCESS_KEY: z.string().default('mock_secret_key'),
+    S3_PUBLIC_DOMAIN: z.string().optional(),
 
     GOOGLE_MAPS_API_KEY: z.string().default('mock_gmaps_key'),
     LOCATION_FRESHNESS_THRESHOLD_SECONDS: z.coerce.number().default(900), // 15 mins
@@ -56,7 +62,16 @@ const envSchema = z
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error('❌ Invalid environment variables:', parsed.error.format());
+  console.error('================================================================================');
+  console.error('❌ FATAL STARTUP ERROR: LocalMan API environment configuration validation failed.');
+  console.error('================================================================================');
+  for (const issue of parsed.error.issues) {
+    const field = issue.path.join('.') || 'CONFIGURATION';
+    console.error(` • [${field}]: ${issue.message}`);
+  }
+  console.error('--------------------------------------------------------------------------------');
+  console.error('💡 Remedy: Please copy .env.example to .env and configure all required variables.');
+  console.error('================================================================================');
   process.exit(1);
 }
 

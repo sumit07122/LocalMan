@@ -57,4 +57,10 @@ class ApiConstants {
   static String bookingMessages(String bookingId) => '$baseUrl/bookings/$bookingId/messages';
   static String bookingMessageRead(String bookingId) => '$baseUrl/bookings/$bookingId/messages/read';
   static String bookingMessageStream(String bookingId) => '$baseUrl/bookings/$bookingId/messages/stream';
+
+  // Phase 3J: Provider Reputation & Reviews endpoints
+  static String get providerOwnReviews => '$baseUrl/providers/reviews';
+  static String providerReviews(String providerId) => '$baseUrl/providers/$providerId/reviews';
+  static String providerReputation(String providerId) => '$baseUrl/providers/$providerId/reputation';
+  static String reviewResponse(String reviewId) => '$baseUrl/reviews/$reviewId/response';
 }

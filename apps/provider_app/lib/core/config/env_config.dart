@@ -1,6 +1,31 @@
 import 'package:flutter/foundation.dart';
 
+enum Environment {
+  development,
+  staging,
+  production,
+}
+
 class EnvConfig {
+  static const String _envName = String.fromEnvironment('ENV', defaultValue: 'development');
+
+  static Environment get currentEnvironment {
+    switch (_envName.toLowerCase()) {
+      case 'production':
+      case 'prod':
+        return Environment.production;
+      case 'staging':
+      case 'stage':
+        return Environment.staging;
+      default:
+        return Environment.development;
+    }
+  }
+
+  static bool get isProduction => currentEnvironment == Environment.production;
+  static bool get isStaging => currentEnvironment == Environment.staging;
+  static bool get isDevelopment => currentEnvironment == Environment.development;
+
   /// Base API URL. Configurable via --dart-define=API_BASE_URL=https://api.localman.in/api/v1
   static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',

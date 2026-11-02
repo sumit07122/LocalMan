@@ -8,7 +8,10 @@ import '../../data/booking_realtime_service.dart';
 import '../../data/booking_repository.dart';
 import '../../domain/booking_item.dart';
 import '../../domain/payment_models.dart';
+import '../../domain/review_item.dart';
 import '../controllers/customer_bookings_provider.dart';
+import '../widgets/review_sheet.dart';
+import '../widgets/live_map_tracking_card.dart';
 import 'booking_chat_screen.dart';
 
 class BookingDetailsScreen extends ConsumerStatefulWidget {
@@ -28,6 +31,31 @@ class _BookingDetailsScreenState extends ConsumerState<BookingDetailsScreen> {
   String? _paymentErrorMessage;
   PaymentSummary? _paymentSummary;
   bool _isLoadingSummary = false;
+  ReviewItem? _existingReview;
+  bool _isLoadingReview = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchReview();
+  }
+
+  Future<void> _fetchReview() async {
+    if (widget.bookingId.isEmpty) return;
+    setState(() => _isLoadingReview = true);
+    try {
+      final review = await ref.read(bookingRepositoryProvider).getBookingReview(widget.bookingId);
+      if (mounted) {
+        setState(() {
+          _existingReview = review;
+          _isLoadingReview = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingReview = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.bookingId.trim().isEmpty) {
@@ -128,6 +156,17 @@ class _BookingDetailsScreenState extends ConsumerState<BookingDetailsScreen> {
 
           const SizedBox(height: 16),
 
+          // Live Maps & ETA Tracking Card (Phase 3K)
+          if (booking.currentStatus != 'CANCELLED' &&
+              booking.currentStatus != 'REJECTED' &&
+              booking.currentStatus != 'REVIEWED') ...[
+            LiveMapTrackingCard(
+              bookingId: booking.id,
+              currentStatus: booking.currentStatus,
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // 3. Start OTP Security Card (show only prior to JOB_STARTED)
           if (booking.startOtp != null &&
               booking.startOtp!.isNotEmpty &&
@@ -161,6 +200,16 @@ class _BookingDetailsScreenState extends ConsumerState<BookingDetailsScreen> {
 
           // 8. Authoritative Price Breakdown Card
           _buildPricingCard(booking),
+
+          // 9. Customer Review & Rating Card (Phase 3J)
+          if (booking.currentStatus == 'JOB_COMPLETED' ||
+              booking.currentStatus == 'PAYMENT_PENDING' ||
+              booking.currentStatus == 'PAYMENT_SETTLED' ||
+              booking.currentStatus == 'CLOSED' ||
+              booking.currentStatus == 'REVIEWED') ...[
+            const SizedBox(height: 16),
+            _buildReviewCard(booking),
+          ],
 
           const SizedBox(height: 24),
         ],
@@ -1121,7 +1170,7 @@ class _BookingDetailsScreenState extends ConsumerState<BookingDetailsScreen> {
           const Divider(height: 24),
           if (booking.addressSnapshot != null) ...[
             Text(
-              booking.addressSnapshot!.label ?? 'Primary Address',
+              booking.addressSnapshot!.label,
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -1254,6 +1303,162 @@ class _BookingDetailsScreenState extends ConsumerState<BookingDetailsScreen> {
       default:
         return 'Final payment settlement occurs upon service completion.';
     }
+  }
+
+  Widget _buildReviewCard(BookingItem booking) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 24),
+                  SizedBox(width: 8),
+                  Text(
+                    'Service Review & Rating',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+              if (_existingReview != null && _existingReview!.canEdit)
+                TextButton.icon(
+                  onPressed: () => _openReviewSheet(booking),
+                  icon: const Icon(Icons.edit, size: 14),
+                  label: Text('Edit (${_existingReview!.hoursRemainingToEdit}h left)'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFF59E0B),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_isLoadingReview)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(8.0),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else if (_existingReview != null) ...[
+            Row(
+              children: List.generate(5, (index) {
+                return Icon(
+                  index < _existingReview!.rating ? Icons.star : Icons.star_border,
+                  color: const Color(0xFFF59E0B),
+                  size: 20,
+                );
+              }),
+            ),
+            if (_existingReview!.title != null && _existingReview!.title!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                _existingReview!.title!,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF1E293B)),
+              ),
+            ],
+            if (_existingReview!.comment != null && _existingReview!.comment!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                _existingReview!.comment!,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+              ),
+            ],
+            if (_existingReview!.providerResponse != null && _existingReview!.providerResponse!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.reply, size: 14, color: Color(0xFF0F172A)),
+                        SizedBox(width: 6),
+                        Text(
+                          'Response from Partner',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF0F172A)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _existingReview!.providerResponse!,
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ] else ...[
+            const Text(
+              'How was your service? Share your feedback to help the provider build reputation and improve community quality.',
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _openReviewSheet(booking),
+                icon: const Icon(Icons.star_outline, size: 18),
+                label: const Text('Rate & Review Service'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F172A),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _openReviewSheet(BookingItem booking) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => ReviewSheet(
+        bookingId: booking.id,
+        existingReview: _existingReview,
+        onReviewSubmitted: _fetchReview,
+      ),
+    );
   }
 }
 

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../auth/domain/auth_state.dart';
-import '../../jobs/data/booking_repository.dart';
-import '../../wallet/data/wallet_repository.dart';
-import '../data/provider_repository.dart';
-import '../data/location_service.dart';
-import '../../../shared/models/dispatch_offer_model.dart';
+import '../../../auth/domain/auth_state.dart';
+import '../../../jobs/data/booking_repository.dart';
+import '../../../wallet/data/wallet_repository.dart';
+import '../../data/provider_repository.dart';
+import '../../data/location_service.dart';
+import '../../../../shared/models/dispatch_offer_model.dart';
 
 class ProviderDashboardScreen extends ConsumerStatefulWidget {
   const ProviderDashboardScreen({super.key});
@@ -104,7 +104,7 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
     try {
       final repo = ref.read(bookingRepositoryProvider);
       await repo.acceptBooking(bookingId);
-      ref.refresh(providerBookingsFutureProvider);
+      ref.invalidate(providerBookingsFutureProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -127,7 +127,7 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
     try {
       final repo = ref.read(bookingRepositoryProvider);
       await repo.rejectBooking(bookingId, reason: 'Declined by partner from dashboard');
-      ref.refresh(providerBookingsFutureProvider);
+      ref.invalidate(providerBookingsFutureProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -149,8 +149,8 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
     try {
       final repo = ref.read(bookingRepositoryProvider);
       final result = await repo.acceptDispatchOffer(offer.id);
-      ref.refresh(activeDispatchOfferFutureProvider);
-      ref.refresh(providerBookingsFutureProvider);
+      ref.invalidate(activeDispatchOfferFutureProvider);
+      ref.invalidate(providerBookingsFutureProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -162,8 +162,8 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
         context.push('/job/$bookingId');
       }
     } catch (e) {
-      ref.refresh(activeDispatchOfferFutureProvider);
-      ref.refresh(providerBookingsFutureProvider);
+      ref.invalidate(activeDispatchOfferFutureProvider);
+      ref.invalidate(providerBookingsFutureProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -179,7 +179,7 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
     try {
       final repo = ref.read(bookingRepositoryProvider);
       await repo.rejectDispatchOffer(offer.id);
-      ref.refresh(activeDispatchOfferFutureProvider);
+      ref.invalidate(activeDispatchOfferFutureProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -270,9 +270,9 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
             tooltip: 'Refresh',
             onPressed: () {
               _loadProfileData();
-              ref.refresh(walletSummaryFutureProvider);
-              ref.refresh(providerBookingsFutureProvider);
-              ref.refresh(activeDispatchOfferFutureProvider);
+              ref.invalidate(walletSummaryFutureProvider);
+              ref.invalidate(providerBookingsFutureProvider);
+              ref.invalidate(activeDispatchOfferFutureProvider);
             },
           ),
           IconButton(
@@ -286,9 +286,9 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
         color: const Color(0xFFF59E0B),
         onRefresh: () async {
           _loadProfileData();
-          ref.refresh(walletSummaryFutureProvider);
-          ref.refresh(providerBookingsFutureProvider);
-          ref.refresh(activeDispatchOfferFutureProvider);
+          ref.invalidate(walletSummaryFutureProvider);
+          ref.invalidate(providerBookingsFutureProvider);
+          ref.invalidate(activeDispatchOfferFutureProvider);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -645,6 +645,69 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
                 ],
               ),
 
+              const SizedBox(height: 16),
+
+              // Phase 3J: Partner Reputation & Reviews Quick Access Card
+              Consumer(
+                builder: (context, ref, _) {
+                  final repAsync = ref.watch(providerReputationFutureProvider);
+                  return InkWell(
+                    onTap: () => context.push('/reputation'),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.star_rounded, color: Color(0xFFD97706), size: 26),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Partner Reputation & Reviews',
+                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F172A)),
+                                ),
+                                const SizedBox(height: 2),
+                                repAsync.when(
+                                  data: (rep) => Text(
+                                    '${rep.averageRating.toStringAsFixed(1)} ★ Rating • ${rep.totalReviews} Published Reviews',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                                  ),
+                                  loading: () => const Text('Loading reputation...', style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                                  error: (_, __) => const Text('Server-Authoritative Score', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+
               const SizedBox(height: 24),
 
               // Active & Assigned Tasks List
@@ -847,12 +910,15 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
             context.push('/wallet');
           } else if (index == 2) {
             context.push('/kyc');
+          } else if (index == 3) {
+            context.push('/reputation');
           }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
           BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet), label: 'Wallet'),
           BottomNavigationBarItem(icon: Icon(Icons.badge), label: 'KYC & Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.star_outline), label: 'Reputation'),
         ],
       ),
     );

@@ -152,6 +152,30 @@ export class BookingController {
     return sendSuccess(reply, result, 200);
   };
 
+  getBookingMapState = async (
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.user) throw new UnauthorizedError();
+    const result = await locationService.getBookingMapState(
+      request.params.id,
+      request.user
+    );
+    return sendSuccess(reply, result, 200);
+  };
+
+  getBookingEta = async (
+    request: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.user) throw new UnauthorizedError();
+    const result = await locationService.getBookingEta(
+      request.params.id,
+      request.user
+    );
+    return sendSuccess(reply, result, 200);
+  };
+
   /**
    * GET /bookings/:id/stream
    * Real-time Server-Sent Events (SSE) stream for booking lifecycle events

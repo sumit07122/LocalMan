@@ -11,3 +11,5 @@ export * from './address.dto.js';
 export * from './cancellation.dto.js';
 export * from './quote.dto.js';
 export * from './chat.dto.js';
+export * from './review.dto.js';
+export * from './media.dto.js';

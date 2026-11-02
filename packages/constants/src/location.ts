@@ -1,0 +1,40 @@
+export const LiveMapState = {
+  SEARCHING: 'SEARCHING',
+  PROVIDER_ASSIGNED_LOCATION_UNAVAILABLE: 'PROVIDER_ASSIGNED_LOCATION_UNAVAILABLE',
+  PROVIDER_ON_THE_WAY: 'PROVIDER_ON_THE_WAY',
+  PROVIDER_NEAR_DESTINATION: 'PROVIDER_NEAR_DESTINATION',
+  PROVIDER_ARRIVED: 'PROVIDER_ARRIVED',
+  TRACKING_STOPPED_JOB_STARTED: 'TRACKING_STOPPED_JOB_STARTED',
+  LOCATION_STALE: 'LOCATION_STALE',
+  LOCATION_UNAVAILABLE: 'LOCATION_UNAVAILABLE',
+  BOOKING_CANCELLED: 'BOOKING_CANCELLED',
+  BOOKING_COMPLETED: 'BOOKING_COMPLETED',
+} as const;
+
+export type LiveMapStateType = (typeof LiveMapState)[keyof typeof LiveMapState];
+
+/**
+ * Distance in meters below which a provider in transit is considered 'near destination'
+ */
+export const NEAR_DESTINATION_THRESHOLD_METERS = 500;
+
+/**
+ * Recommended client-side polling interval (ms) when realtime SSE is disconnected
+ */
+export const LIVE_TRACKING_POLL_INTERVAL_MS = 10000;
+
+/**
+ * Physical bounds and sanity constants for GPS validation
+ */
+export const GPS_CONSTRAINTS = {
+  MIN_LATITUDE: -90,
+  MAX_LATITUDE: 90,
+  MIN_LONGITUDE: -180,
+  MAX_LONGITUDE: 180,
+  MAX_ACCURACY_METERS: 5000,
+  MAX_SPEED_MPS: 75,
+  MAX_HEADING_DEGREES: 360,
+  MAX_DISPLACEMENT_SPEED_MPS: 80,
+  FUTURE_DRIFT_TOLERANCE_MS: 15000,
+  MAX_HISTORY_AGE_MS: 86400000, // 24 hours
+} as const;

@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { ProviderController } from './provider.controller.js';
 import { cancellationController } from '../cancellations/cancellation.controller.js';
 import { quoteController } from '../quotes/quote.controller.js';
+import { reviewController } from '../reviews/review.controller.js';
 import { authenticate } from '../../common/middleware/auth.middleware.js';
 import { requireRoles } from '../../common/middleware/rbac.middleware.js';
 
@@ -60,4 +61,7 @@ export async function providerRoutes(fastify: FastifyInstance) {
   fastify.post('/dispatch/offers/:id/accept', controller.acceptDispatchOffer);
   fastify.post('/dispatch/offers/:id/reject', controller.rejectDispatchOffer);
   fastify.get('/dispatch/stream', controller.subscribeDispatchStream);
+
+  // Phase 3J: Provider Reputation & Reviews Oversight
+  fastify.get('/reviews', reviewController.getMyProviderReviews);
 }

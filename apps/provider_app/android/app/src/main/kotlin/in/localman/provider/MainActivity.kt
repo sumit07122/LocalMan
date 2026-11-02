@@ -1,4 +1,4 @@
-package in.localman.provider
+package `in`.localman.provider
 
 import io.flutter.embedding.android.FlutterActivity
 

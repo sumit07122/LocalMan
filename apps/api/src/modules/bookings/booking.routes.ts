@@ -5,6 +5,8 @@ import { cancellationController } from '../cancellations/cancellation.controller
 import { disputeController } from '../disputes/dispute.controller.js';
 import { quoteController } from '../quotes/quote.controller.js';
 import { chatController } from '../chat/chat.controller.js';
+import { reviewController } from '../reviews/review.controller.js';
+import { mediaController } from '../media/media.controller.js';
 import { authenticate } from '../../common/middleware/auth.middleware.js';
 
 export async function bookingRoutes(fastify: FastifyInstance) {
@@ -23,7 +25,11 @@ export async function bookingRoutes(fastify: FastifyInstance) {
   fastify.patch('/:id/materials/approve', controller.approveMaterial);
   fastify.post('/:id/dispatch', controller.triggerDispatch);
   fastify.get('/:id/dispatch-status', controller.getDispatchStatus);
+  // Phase 2G & Phase 3K: Live Maps, Location & ETA
   fastify.get('/:id/provider-location', controller.getProviderLocation);
+  fastify.get('/:id/location', controller.getProviderLocation);
+  fastify.get('/:id/map-state', controller.getBookingMapState);
+  fastify.get('/:id/eta', controller.getBookingEta);
   fastify.get('/:id/stream', controller.subscribeBookingStream);
 
   // Phase 3F Customer Payment endpoints under /bookings/:bookingId/payment/...
@@ -50,4 +56,12 @@ export async function bookingRoutes(fastify: FastifyInstance) {
   fastify.post('/:bookingId/messages', chatController.sendMessage);
   fastify.post('/:bookingId/messages/read', chatController.markRead);
   fastify.get('/:bookingId/messages/stream', chatController.subscribeStream);
+
+  // Phase 3J Review & Rating endpoints under /bookings/:bookingId/review
+  fastify.post('/:bookingId/review', reviewController.createBookingReview);
+  fastify.get('/:bookingId/review', reviewController.getBookingReview);
+  fastify.patch('/:bookingId/review', reviewController.updateBookingReview);
+
+  // Phase 3L Media & Object Storage endpoints under /bookings/:id/media
+  fastify.get('/:id/media', mediaController.getBookingMedia);
 }

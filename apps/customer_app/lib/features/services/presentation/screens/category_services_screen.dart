@@ -5,7 +5,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/empty_state_view.dart';
 import '../../../../shared/widgets/error_view.dart';
 import '../../../../shared/widgets/loading_indicator.dart';
-import '../../domain/category.dart';
 import '../../domain/service.dart';
 import '../controllers/catalog_providers.dart';
 
@@ -52,8 +51,8 @@ class _CategoryServicesScreenState
           onRetry: () => ref.refresh(categoryDetailProvider(widget.categoryId)),
         ),
         data: (category) {
-          final subcategories = category.children ?? [];
-          final allServices = category.services ?? [];
+          final subcategories = category.children;
+          final allServices = category.services;
 
           // Filter services by search text and selected subcategory
           final filteredServices = allServices.where((s) {
@@ -113,7 +112,7 @@ class _CategoryServicesScreenState
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                if (category.servicesCount != null)
+                                if (category.servicesCount > 0)
                                   Text(
                                     '${category.servicesCount} services available',
                                     style: TextStyle(
@@ -370,7 +369,7 @@ class _ServiceListCard extends StatelessWidget {
                   ),
 
                   // Estimated Duration
-                  if (service.formattedDuration != null)
+                  if (service.formattedDuration.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
@@ -385,7 +384,7 @@ class _ServiceListCard extends StatelessWidget {
                               size: 12, color: Colors.grey.shade600),
                           const SizedBox(width: 4),
                           Text(
-                            service.formattedDuration!,
+                            service.formattedDuration,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,

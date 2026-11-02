@@ -137,6 +137,9 @@ class BookingRealtimeService implements IBookingRealtimeService {
               buffer.clear();
               try {
                 final jsonMap = jsonDecode(dataStr) as Map<String, dynamic>;
+                if (!jsonMap.containsKey('type') && currentEventType != 'message') {
+                  jsonMap['type'] = currentEventType;
+                }
                 final event = BookingRealtimeEvent.fromJson(jsonMap);
                 if (!controller.isClosed) {
                   controller.add(event);

@@ -134,7 +134,7 @@ class BookingTrackingScreen extends StatelessWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.grey.shade200),
-                ],
+                ),
                 child: Row(
                   children: [
                     const CircleAvatar(

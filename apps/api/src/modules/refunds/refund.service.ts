@@ -96,7 +96,10 @@ export class RefundService {
       const existingRefund = await prisma.refund.findFirst({
         where: {
           paymentId: payment.id,
-          reason: { contains: `[idempotency:${idempotencyKey}]` },
+          OR: [
+            { idempotencyKey },
+            { reason: { contains: `[idempotency:${idempotencyKey}]` } },
+          ],
         },
       });
 
@@ -153,6 +156,7 @@ export class RefundService {
           initiatedBy,
           status: 'SUCCEEDED',
           gatewayRefundId: gatewayResult.gatewayRefundId,
+          idempotencyKey: idempotencyKey || null,
         },
       });
 

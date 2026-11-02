@@ -8,6 +8,8 @@ import '../domain/payment_models.dart';
 import '../domain/cancellation_models.dart';
 import '../domain/quote_models.dart';
 import '../domain/chat_models.dart';
+import '../domain/review_item.dart';
+import '../domain/live_map_state.dart';
 
 abstract class IBookingRepository {
   Future<BookingItem> createBooking(CreateBookingRequest request);
@@ -66,6 +68,29 @@ abstract class IBookingRepository {
     String bookingId, {
     String? messageId,
   });
+
+  // Phase 3J Review methods
+  Future<ReviewItem?> getBookingReview(String bookingId);
+  Future<ReviewItem> submitBookingReview(
+    String bookingId, {
+    required int rating,
+    String? title,
+    String? comment,
+  });
+  Future<ReviewItem> updateBookingReview(
+    String bookingId, {
+    int? rating,
+    String? title,
+    String? comment,
+  });
+  Future<bool> reportReview(
+    String reviewId, {
+    required String reason,
+    String? details,
+  });
+
+  // Phase 3K Live Maps & ETA
+  Future<LiveMapStateModel> getBookingMapState(String bookingId);
 }
 
 class BookingRepository implements IBookingRepository {
@@ -372,6 +397,91 @@ class BookingRepository implements IBookingRepository {
     );
     final body = response.data as Map<String, dynamic>;
     return body['success'] as bool? ?? true;
+  }
+
+  // Phase 3J Review Implementation
+  @override
+  Future<ReviewItem?> getBookingReview(String bookingId) async {
+    try {
+      final response = await _apiClient.dio.get(ApiConstants.bookingReview(bookingId));
+      final body = response.data as Map<String, dynamic>;
+      final data = (body['data'] as Map<String, dynamic>?) ?? body;
+      if (data.isEmpty || data['id'] == null) return null;
+      return ReviewItem.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<ReviewItem> submitBookingReview(
+    String bookingId, {
+    required int rating,
+    String? title,
+    String? comment,
+  }) async {
+    final payload = <String, dynamic>{
+      'rating': rating,
+      if (title != null && title.trim().isNotEmpty) 'title': title.trim(),
+      if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
+    };
+
+    final response = await _apiClient.dio.post(
+      ApiConstants.bookingReview(bookingId),
+      data: payload,
+    );
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? body;
+    return ReviewItem.fromJson(data);
+  }
+
+  @override
+  Future<ReviewItem> updateBookingReview(
+    String bookingId, {
+    int? rating,
+    String? title,
+    String? comment,
+  }) async {
+    final payload = <String, dynamic>{
+      if (rating != null) 'rating': rating,
+      if (title != null) 'title': title.trim(),
+      if (comment != null) 'comment': comment.trim(),
+    };
+
+    final response = await _apiClient.dio.patch(
+      ApiConstants.bookingReview(bookingId),
+      data: payload,
+    );
+    final body = response.data as Map<String, dynamic>;
+    final data = (body['data'] as Map<String, dynamic>?) ?? body;
+    return ReviewItem.fromJson(data);
+  }
+
+  @override
+  Future<bool> reportReview(
+    String reviewId, {
+    required String reason,
+    String? details,
+  }) async {
+    final payload = <String, dynamic>{
+      'reason': reason,
+      if (details != null && details.trim().isNotEmpty) 'details': details.trim(),
+    };
+
+    final response = await _apiClient.dio.post(
+      ApiConstants.reviewReport(reviewId),
+      data: payload,
+    );
+    final body = response.data as Map<String, dynamic>;
+    return body['success'] as bool? ?? true;
+  }
+
+  @override
+  Future<LiveMapStateModel> getBookingMapState(String bookingId) async {
+    final response = await _apiClient.get(ApiConstants.bookingMapState(bookingId));
+    final body = (response as Map<String, dynamic>?) ?? {};
+    final data = (body['data'] as Map<String, dynamic>?) ?? body;
+    return LiveMapStateModel.fromJson(data);
   }
 }
 

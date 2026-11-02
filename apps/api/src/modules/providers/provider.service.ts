@@ -65,6 +65,7 @@ export class ProviderService {
     }
 
     let docNumberToStore = input.documentNumber.trim();
+    let maskedDocNumber = docNumberToStore;
 
     if (
       input.documentType === 'AADHAAR_FRONT' ||
@@ -77,12 +78,14 @@ export class ProviderService {
       }
       // UIDAI Compliance: Mask the first 8 digits
       docNumberToStore = `XXXXXXXX${cleanAadhaar.slice(8)}`;
+      maskedDocNumber = docNumberToStore;
     } else if (input.documentType === 'PAN_CARD') {
       const cleanPan = docNumberToStore.toUpperCase().trim();
       if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleanPan)) {
         throw new ValidationError('Invalid PAN format (e.g. ABCDE1234F).');
       }
       docNumberToStore = cleanPan;
+      maskedDocNumber = `XXXXX${cleanPan.slice(5)}`;
     }
 
     const doc = await prisma.providerDocument.create({
@@ -90,6 +93,7 @@ export class ProviderService {
         providerId: provider.id,
         documentType: input.documentType as any,
         documentNumber: docNumberToStore,
+        maskedDocumentNumber: maskedDocNumber,
         fileUrl: input.fileUrl || 'https://storage.localman.in/kyc/default_doc.jpg',
         status: 'PENDING',
       },

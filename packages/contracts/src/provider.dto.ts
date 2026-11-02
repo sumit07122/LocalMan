@@ -45,7 +45,7 @@ export const UpdateLocationBeaconSchema = z.object({
   speed: z.number().min(0).max(75).optional(),
   timestamp: z.union([z.string().datetime(), z.number()]).optional(),
   source: z.string().max(50).optional().default('FOREGROUND_APP'),
-  bookingId: z.string().uuid().optional(),
+  bookingId: z.string().min(1).max(100).optional(),
 });
 export type UpdateLocationBeaconInput = z.infer<typeof UpdateLocationBeaconSchema>;
 

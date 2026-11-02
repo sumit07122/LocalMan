@@ -26,6 +26,9 @@ export interface MockDataStore {
   conversationParticipants: Map<string, any>;
   messages: Map<string, any>;
   chatOutboxEvents: Map<string, any>;
+  reviews: Map<string, any>;
+  reviewReports: Map<string, any>;
+  mediaAttachments: Map<string, any>;
 }
 
 export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
@@ -55,6 +58,9 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
     conversationParticipants: initialStore?.conversationParticipants || new Map(),
     messages: initialStore?.messages || new Map(),
     chatOutboxEvents: initialStore?.chatOutboxEvents || new Map(),
+    reviews: initialStore?.reviews || new Map(),
+    reviewReports: initialStore?.reviewReports || new Map(),
+    mediaAttachments: initialStore?.mediaAttachments || new Map(),
   };
 
   const mockPrisma = {
@@ -363,6 +369,7 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
           statusHistory: b.statusHistory || statusHistory,
           complaints: b.complaints || complaints,
           quotes: b.quotes || quotes,
+          review: b.review || Array.from(store.reviews.values()).find((r) => r.bookingId === b.id) || null,
           conversation: Array.from(store.conversations.values()).find((c) => c.bookingId === b.id) || null,
           service: store.services.get(b.serviceId) || b.service || { id: b.serviceId, name: 'Standard Service' },
           address: store.addresses.get(b.addressId) || b.address || { city: 'Bengaluru', latitude: 12.9716, longitude: 77.5946 },
@@ -379,6 +386,22 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
           Object.assign(b, data);
         }
         return b;
+      },
+      updateMany: async ({ where, data }: any) => {
+        let count = 0;
+        for (const b of store.bookings.values()) {
+          let match = true;
+          if (where?.id && b.id !== where.id) match = false;
+          if (where?.currentStatus && b.currentStatus !== where.currentStatus) match = false;
+          if (where?.providerId === null && b.providerId !== null && b.providerId !== undefined) match = false;
+          else if (where?.providerId && b.providerId !== where.providerId) match = false;
+          if (where?.customerId && b.customerId !== where.customerId) match = false;
+          if (match) {
+            Object.assign(b, data);
+            count++;
+          }
+        }
+        return { count };
       },
     },
 
@@ -514,10 +537,27 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
         store.refunds.set(id, r);
         return r;
       },
+      findUnique: async ({ where }: any) => {
+        for (const r of store.refunds.values()) {
+          if (where?.id && r.id === where.id) return r;
+          if (where?.idempotencyKey && r.idempotencyKey === where.idempotencyKey) return r;
+        }
+        return null;
+      },
       findFirst: async ({ where }: any) => {
         for (const r of store.refunds.values()) {
           if (where?.id && r.id !== where.id) continue;
           if (where?.paymentId && r.paymentId !== where.paymentId) continue;
+          if (where?.idempotencyKey && r.idempotencyKey !== where.idempotencyKey) continue;
+          if (where?.OR && Array.isArray(where.OR)) {
+            const orMatch = where.OR.some((cond: any) => {
+              if (cond.idempotencyKey && r.idempotencyKey === cond.idempotencyKey) return true;
+              if (cond.reason?.contains && r.reason?.includes(cond.reason.contains)) return true;
+              return false;
+            });
+            if (!orMatch) continue;
+            return r;
+          }
           if (where?.reason?.contains && !r.reason?.includes(where.reason.contains)) continue;
           return r;
         }
@@ -1810,6 +1850,290 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
         if (!e) throw new Error('Outbox event not found');
         Object.assign(e, data);
         return { ...e };
+      },
+    },
+
+    review: {
+      create: async ({ data, include }: any) => {
+        const id = data.id || `rev_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const record = {
+          id,
+          bookingId: data.bookingId,
+          customerId: data.customerId,
+          providerId: data.providerId,
+          rating: data.rating,
+          title: data.title || null,
+          body: data.body || data.comment || null,
+          comment: data.comment || data.body || null,
+          status: data.status || 'PUBLISHED',
+          isFlagged: data.isFlagged || false,
+          providerResponse: data.providerResponse || data.providerReply || null,
+          providerReply: data.providerReply || data.providerResponse || null,
+          providerRespondedAt: data.providerRespondedAt || null,
+          moderatedAt: data.moderatedAt || null,
+          moderatedBy: data.moderatedBy || null,
+          moderationReason: data.moderationReason || null,
+          photos: data.photos || [],
+          createdAt: data.createdAt || new Date(),
+          updatedAt: data.updatedAt || new Date(),
+        };
+        store.reviews.set(id, record);
+
+        const booking = store.bookings.get(data.bookingId);
+        if (booking) {
+          booking.review = record;
+        }
+
+        const res: any = { ...record };
+        if (include?.customer) {
+          res.customer = store.users.get(record.customerId) || { fullName: 'Verified Customer' };
+        }
+        if (include?.provider) {
+          res.provider = store.providers.get(record.providerId) || null;
+        }
+        return res;
+      },
+      findUnique: async ({ where, include }: any) => {
+        for (const r of store.reviews.values()) {
+          if ((where.id && r.id === where.id) || (where.bookingId && r.bookingId === where.bookingId)) {
+            const res: any = { ...r };
+            if (include?.customer) {
+              res.customer = store.users.get(r.customerId) || { fullName: 'Verified Customer' };
+            }
+            if (include?.provider) {
+              const p = store.providers.get(r.providerId);
+              res.provider = p ? { ...p, user: store.users.get(p.userId) } : null;
+            }
+            if (include?.booking) {
+              res.booking = store.bookings.get(r.bookingId) || null;
+            }
+            if (include?.reports) {
+              res.reports = Array.from(store.reviewReports.values()).filter((rep) => rep.reviewId === r.id);
+            }
+            return res;
+          }
+        }
+        return null;
+      },
+      findFirst: async ({ where, include }: any) => {
+        for (const r of store.reviews.values()) {
+          if (where?.id && r.id !== where.id) continue;
+          if (where?.bookingId && r.bookingId !== where.bookingId) continue;
+          if (where?.customerId && r.customerId !== where.customerId) continue;
+          if (where?.providerId && r.providerId !== where.providerId) continue;
+          if (where?.status && r.status !== where.status) continue;
+
+          const res: any = { ...r };
+          if (include?.customer) {
+            res.customer = store.users.get(r.customerId) || { fullName: 'Verified Customer' };
+          }
+          if (include?.provider) {
+            const p = store.providers.get(r.providerId);
+            res.provider = p ? { ...p, user: store.users.get(p.userId) } : null;
+          }
+          if (include?.booking) {
+            res.booking = store.bookings.get(r.bookingId) || null;
+          }
+          if (include?.reports) {
+            res.reports = Array.from(store.reviewReports.values()).filter((rep) => rep.reviewId === r.id);
+          }
+          return res;
+        }
+        return null;
+      },
+      findMany: async ({ where, skip = 0, take, orderBy, include, select }: any) => {
+        let list = Array.from(store.reviews.values()).filter((r) => {
+          if (where?.providerId && r.providerId !== where.providerId) return false;
+          if (where?.customerId && r.customerId !== where.customerId) return false;
+          if (where?.status && r.status !== where.status) return false;
+          if (where?.rating && r.rating !== where.rating) return false;
+          if (where?.isFlagged !== undefined && r.isFlagged !== where.isFlagged) return false;
+          return true;
+        });
+
+        if (orderBy?.createdAt === 'desc') {
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        } else if (orderBy?.createdAt === 'asc') {
+          list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        }
+
+        if (skip) list = list.slice(skip);
+        if (take !== undefined) list = list.slice(0, take);
+
+        return list.map((r) => {
+          if (select) {
+            const selRes: any = {};
+            for (const key of Object.keys(select)) {
+              if (select[key]) selRes[key] = r[key];
+            }
+            return selRes;
+          }
+          const res: any = { ...r };
+          if (include?.customer) {
+            res.customer = store.users.get(r.customerId) || { fullName: 'Verified Customer' };
+          }
+          if (include?.provider) {
+            const p = store.providers.get(r.providerId);
+            res.provider = p ? { ...p, user: store.users.get(p.userId) } : null;
+          }
+          if (include?.reports) {
+            res.reports = Array.from(store.reviewReports.values()).filter((rep) => rep.reviewId === r.id);
+          }
+          return res;
+        });
+      },
+      count: async ({ where }: any) => {
+        return Array.from(store.reviews.values()).filter((r) => {
+          if (where?.providerId && r.providerId !== where.providerId) return false;
+          if (where?.customerId && r.customerId !== where.customerId) return false;
+          if (where?.status && r.status !== where.status) return false;
+          if (where?.rating && r.rating !== where.rating) return false;
+          if (where?.isFlagged !== undefined && r.isFlagged !== where.isFlagged) return false;
+          return true;
+        }).length;
+      },
+      update: async ({ where, data, include }: any) => {
+        const r = store.reviews.get(where.id);
+        if (!r) throw new Error('Review not found in mock store');
+        Object.assign(r, data, { updatedAt: new Date() });
+        const res: any = { ...r };
+        if (include?.customer) {
+          res.customer = store.users.get(r.customerId) || { fullName: 'Verified Customer' };
+        }
+        if (include?.provider) {
+          const p = store.providers.get(r.providerId);
+          res.provider = p ? { ...p, user: store.users.get(p.userId) } : null;
+        }
+        return res;
+      },
+      delete: async ({ where }: any) => {
+        const r = store.reviews.get(where.id);
+        if (r) store.reviews.delete(where.id);
+        return r;
+      },
+    },
+
+    reviewReport: {
+      create: async ({ data }: any) => {
+        const id = data.id || `rep_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const record = {
+          id,
+          reviewId: data.reviewId,
+          reporterId: data.reporterId,
+          reason: data.reason,
+          details: data.details || null,
+          status: data.status || 'PENDING',
+          createdAt: data.createdAt || new Date(),
+          resolvedAt: data.resolvedAt || null,
+          resolvedBy: data.resolvedBy || null,
+        };
+        store.reviewReports.set(id, record);
+        return record;
+      },
+      findFirst: async ({ where }: any) => {
+        for (const rep of store.reviewReports.values()) {
+          if (where?.reviewId && rep.reviewId !== where.reviewId) continue;
+          if (where?.reporterId && rep.reporterId !== where.reporterId) continue;
+          return rep;
+        }
+        return null;
+      },
+      findUnique: async ({ where }: any) => {
+        if (where.id) return store.reviewReports.get(where.id) || null;
+        if (where.reviewId_reporterId) {
+          for (const rep of store.reviewReports.values()) {
+            if (
+              rep.reviewId === where.reviewId_reporterId.reviewId &&
+              rep.reporterId === where.reviewId_reporterId.reporterId
+            ) {
+              return rep;
+            }
+          }
+        }
+        return null;
+      },
+      findMany: async ({ where }: any) => {
+        return Array.from(store.reviewReports.values()).filter((rep) => {
+          if (where?.reviewId && rep.reviewId !== where.reviewId) return false;
+          if (where?.reporterId && rep.reporterId !== where.reporterId) return false;
+          if (where?.status && rep.status !== where.status) return false;
+          return true;
+        });
+      },
+      update: async ({ where, data }: any) => {
+        const rep = store.reviewReports.get(where.id);
+        if (!rep) throw new Error('Report not found in mock store');
+        Object.assign(rep, data);
+        return { ...rep };
+      },
+      count: async ({ where }: any) => {
+        return Array.from(store.reviewReports.values()).filter((rep) => {
+          if (where?.reviewId && rep.reviewId !== where.reviewId) return false;
+          if (where?.status && rep.status !== where.status) return false;
+          return true;
+        }).length;
+      },
+    },
+
+    mediaAttachment: {
+      create: async ({ data }: any) => {
+        const id = data.id || `med_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const record = {
+          id,
+          storageKey: data.storageKey,
+          fileUrl: data.fileUrl,
+          purpose: data.purpose,
+          entityId: data.entityId,
+          bookingId: data.bookingId || data.entityId,
+          uploaderUserId: data.uploaderUserId,
+          uploaderRole: data.uploaderRole,
+          caption: data.caption || null,
+          contentType: data.contentType || 'image/jpeg',
+          fileSizeBytes: data.fileSizeBytes || 0,
+          createdAt: data.createdAt || new Date(),
+        };
+        store.mediaAttachments.set(id, record);
+        return record;
+      },
+      findUnique: async ({ where }: any) => {
+        if (where?.id) return store.mediaAttachments.get(where.id) || null;
+        return null;
+      },
+      findFirst: async ({ where }: any) => {
+        for (const m of store.mediaAttachments.values()) {
+          if (where?.id && m.id !== where.id) continue;
+          if (where?.bookingId && m.bookingId !== where.bookingId) continue;
+          if (where?.entityId && m.entityId !== where.entityId) continue;
+          if (where?.purpose && m.purpose !== where.purpose) continue;
+          return m;
+        }
+        return null;
+      },
+      findMany: async ({ where, orderBy }: any) => {
+        let list = Array.from(store.mediaAttachments.values()).filter((m) => {
+          if (where?.bookingId && m.bookingId !== where.bookingId) return false;
+          if (where?.entityId && m.entityId !== where.entityId) return false;
+          if (where?.purpose && m.purpose !== where.purpose) return false;
+          if (where?.uploaderUserId && m.uploaderUserId !== where.uploaderUserId) return false;
+          return true;
+        });
+        if (orderBy?.createdAt === 'desc') {
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        }
+        return list;
+      },
+      delete: async ({ where }: any) => {
+        const m = store.mediaAttachments.get(where.id);
+        if (m) store.mediaAttachments.delete(where.id);
+        return m;
+      },
+      count: async ({ where }: any) => {
+        return Array.from(store.mediaAttachments.values()).filter((m) => {
+          if (where?.bookingId && m.bookingId !== where.bookingId) return false;
+          if (where?.entityId && m.entityId !== where.entityId) return false;
+          if (where?.purpose && m.purpose !== where.purpose) return false;
+          return true;
+        }).length;
       },
     },
 

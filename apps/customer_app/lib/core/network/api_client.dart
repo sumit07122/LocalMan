@@ -231,7 +231,7 @@ class ApiClient {
           return UnauthorizedException(apiError.message, apiError);
         case 400:
         case 422:
-          return ValidationException(apiError.message, apiError);
+          return ValidationException(apiError.message, error: apiError);
         case 403:
           return UnauthorizedException(apiError.message, apiError);
         case 500:

@@ -4,10 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/empty_state_view.dart';
 import '../../../../shared/widgets/error_view.dart';
-import '../../addresses/presentation/controllers/address_provider.dart';
-import '../../auth/presentation/controllers/auth_provider.dart';
-import '../../services/domain/category.dart';
-import '../../services/presentation/controllers/catalog_providers.dart';
+import '../../../addresses/presentation/controllers/address_provider.dart';
+import '../../../auth/presentation/controllers/auth_provider.dart';
+import '../../../services/presentation/controllers/catalog_providers.dart';
 
 class CustomerHomeScreen extends ConsumerWidget {
   const CustomerHomeScreen({super.key});

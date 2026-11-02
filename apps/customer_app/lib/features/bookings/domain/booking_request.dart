@@ -10,23 +10,25 @@ class CreateBookingRequest {
   final List<String>? attachments;
   final String? idempotencyKey;
 
-  const CreateBookingRequest({
+  CreateBookingRequest({
     required this.serviceId,
     required this.addressId,
-    required this.jobDescription,
-    required this.scheduledDate,
-    required this.scheduledTimeSlot,
-    required this.pricingModel,
+    this.jobDescription = '',
+    required dynamic scheduledDate,
+    this.scheduledTimeSlot = '10:00 - 12:00',
+    this.pricingModel = 'FIXED_PRICE',
     this.hours,
     this.customerNotes,
     this.attachments,
     this.idempotencyKey,
-  });
+  }) : scheduledDate = scheduledDate is DateTime
+            ? scheduledDate.toIso8601String()
+            : scheduledDate.toString();
 
   Map<String, dynamic> toJson() => {
         'serviceId': serviceId,
         'addressId': addressId,
-        'jobDescription': jobDescription,
+        if (jobDescription.isNotEmpty) 'jobDescription': jobDescription,
         'scheduledDate': scheduledDate,
         'scheduledTimeSlot': scheduledTimeSlot,
         'pricingModel': pricingModel,

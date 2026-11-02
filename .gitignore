@@ -22,6 +22,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 *.log
+*.hprof
 
 # Editor & OS files
 .DS_Store
@@ -34,6 +35,7 @@ Thumbs.db
 # Database & Docker volumes
 postgres_data/
 redis_data/
+.local-postgres-data/
 
 # Flutter & Mobile artifacts
 apps/*_app/.dart_tool/

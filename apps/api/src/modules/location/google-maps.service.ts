@@ -6,6 +6,7 @@ export interface RouteResult {
   etaMinutes: number | null;
   isRealTimeRouting: boolean;
   status: string;
+  cached?: boolean;
 }
 
 export interface Coordinates {
@@ -13,11 +14,37 @@ export interface Coordinates {
   lng: number;
 }
 
+export interface GoogleMapsServiceOptions {
+  apiKey?: string;
+  cacheTtlMs?: number;
+  maxRequestsPerMinute?: number;
+  maxRequestsPerDay?: number;
+  fetchFn?: typeof fetch;
+}
+
+interface CacheEntry {
+  result: RouteResult;
+  expiresAt: number;
+}
+
 export class GoogleMapsService {
   private apiKey: string;
+  private cacheTtlMs: number;
+  private maxRequestsPerMinute: number;
+  private maxRequestsPerDay: number;
+  private fetchFn: typeof fetch;
 
-  constructor(apiKey = env.GOOGLE_MAPS_API_KEY) {
-    this.apiKey = apiKey;
+  private cache = new Map<string, CacheEntry>();
+  private minuteRequestTimestamps: number[] = [];
+  private dayRequestCount = 0;
+  private currentDay = new Date().toISOString().slice(0, 10);
+
+  constructor(options: GoogleMapsServiceOptions = {}) {
+    this.apiKey = options.apiKey ?? env.GOOGLE_MAPS_API_KEY;
+    this.cacheTtlMs = options.cacheTtlMs ?? 30_000; // 30 seconds default cache TTL
+    this.maxRequestsPerMinute = options.maxRequestsPerMinute ?? 60; // 60 requests/min budget
+    this.maxRequestsPerDay = options.maxRequestsPerDay ?? 5000; // 5000 requests/day budget
+    this.fetchFn = options.fetchFn ?? fetch;
   }
 
   /**
@@ -43,11 +70,76 @@ export class GoogleMapsService {
   }
 
   /**
-   * Resolves routing information between origin and destination.
-   * In development/test environments or when credentials are not configured,
-   * it cleanly returns straight-line distance with durationSeconds: null (NO fake ETAs).
+   * Clears the in-memory route cache.
    */
-  async calculateRoute(origin: Coordinates, destination: Coordinates): Promise<RouteResult> {
+  public clearCache(): void {
+    this.cache.clear();
+  }
+
+  /**
+   * Resets the rolling request budget counters (useful in automated testing).
+   */
+  public resetBudget(): void {
+    this.minuteRequestTimestamps = [];
+    this.dayRequestCount = 0;
+  }
+
+  /**
+   * Returns current budget and cache statistics for monitoring & health checks.
+   */
+  public getBudgetStats() {
+    this.pruneMinuteBudget();
+    return {
+      requestsThisMinute: this.minuteRequestTimestamps.length,
+      maxRequestsPerMinute: this.maxRequestsPerMinute,
+      requestsToday: this.dayRequestCount,
+      maxRequestsPerDay: this.maxRequestsPerDay,
+      cachedRoutesCount: this.cache.size,
+      hasRealApiKey: Boolean(this.apiKey && this.apiKey !== 'mock_gmaps_key'),
+    };
+  }
+
+  private pruneMinuteBudget(): void {
+    const now = Date.now();
+    const oneMinuteAgo = now - 60_000;
+    this.minuteRequestTimestamps = this.minuteRequestTimestamps.filter((ts) => ts > oneMinuteAgo);
+
+    const today = new Date().toISOString().slice(0, 10);
+    if (today !== this.currentDay) {
+      this.currentDay = today;
+      this.dayRequestCount = 0;
+    }
+  }
+
+  private isBudgetExceeded(): boolean {
+    this.pruneMinuteBudget();
+    if (this.minuteRequestTimestamps.length >= this.maxRequestsPerMinute) {
+      return true;
+    }
+    if (this.dayRequestCount >= this.maxRequestsPerDay) {
+      return true;
+    }
+    return false;
+  }
+
+  private recordRequestUsage(): void {
+    const now = Date.now();
+    this.minuteRequestTimestamps.push(now);
+    this.dayRequestCount++;
+  }
+
+  /**
+   * Resolves routing information between origin and destination.
+   * - Supports real Google Maps Directions API key when provided.
+   * - Includes 30-second memory cache to eliminate redundant queries.
+   * - Includes request budget guard to prevent API bill explosions.
+   * - Cleanly falls back to Haversine straight-line distance with durationSeconds: null (NO fake ETAs).
+   */
+  async calculateRoute(
+    origin: Coordinates,
+    destination: Coordinates,
+    options?: { forceLive?: boolean }
+  ): Promise<RouteResult> {
     const straightLineMeters = this.calculateHaversineDistanceMeters(
       origin.lat,
       origin.lng,
@@ -55,28 +147,74 @@ export class GoogleMapsService {
       destination.lng
     );
 
-    // If API key is mock or absent, return non-routed fallback
-    if (!this.apiKey || this.apiKey === 'mock_gmaps_key' || env.NODE_ENV === 'test') {
+    // 1. Check in-memory cache (30s TTL)
+    const cacheKey = `${origin.lat.toFixed(4)},${origin.lng.toFixed(4)}->${destination.lat.toFixed(4)},${destination.lng.toFixed(4)}`;
+    const cached = this.cache.get(cacheKey);
+    const now = Date.now();
+
+    if (cached && cached.expiresAt > now) {
       return {
+        ...cached.result,
+        cached: true,
+      };
+    }
+
+    // 2. If API key is mock, empty, or test mode without forceLive, return Haversine fallback
+    const isMock = !this.apiKey || this.apiKey === 'mock_gmaps_key';
+    const isTestMode = env.NODE_ENV === 'test' && !options?.forceLive;
+
+    if (isMock || isTestMode) {
+      const fallbackResult: RouteResult = {
         distanceMeters: straightLineMeters,
         durationSeconds: null,
         etaMinutes: null,
         isRealTimeRouting: false,
         status: 'FALLBACK_STRAIGHT_LINE',
       };
+      this.cache.set(cacheKey, {
+        result: fallbackResult,
+        expiresAt: now + this.cacheTtlMs,
+      });
+      return fallbackResult;
     }
 
+    // 3. Request budget guard: prevent bill explosions
+    if (this.isBudgetExceeded()) {
+      const budgetFallback: RouteResult = {
+        distanceMeters: straightLineMeters,
+        durationSeconds: null,
+        etaMinutes: null,
+        isRealTimeRouting: false,
+        status: 'BUDGET_EXCEEDED_FALLBACK',
+      };
+      this.cache.set(cacheKey, {
+        result: budgetFallback,
+        expiresAt: now + this.cacheTtlMs,
+      });
+      return budgetFallback;
+    }
+
+    // 4. Execute external Google Directions API call with timeout
     try {
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&mode=driving&key=${this.apiKey}`;
-      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      this.recordRequestUsage();
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&mode=driving&key=${encodeURIComponent(
+        this.apiKey
+      )}`;
+
+      const response = await this.fetchFn(url, { signal: AbortSignal.timeout(5000) });
       if (!response.ok) {
-        return {
+        const errorFallback: RouteResult = {
           distanceMeters: straightLineMeters,
           durationSeconds: null,
           etaMinutes: null,
           isRealTimeRouting: false,
           status: `HTTP_${response.status}`,
         };
+        this.cache.set(cacheKey, {
+          result: errorFallback,
+          expiresAt: now + this.cacheTtlMs,
+        });
+        return errorFallback;
       }
 
       const data = (await response.json()) as any;
@@ -86,30 +224,45 @@ export class GoogleMapsService {
         const durationSeconds = leg.duration.value;
         const etaMinutes = Math.ceil(durationSeconds / 60);
 
-        return {
+        const realResult: RouteResult = {
           distanceMeters,
           durationSeconds,
           etaMinutes,
           isRealTimeRouting: true,
           status: 'OK',
         };
+        this.cache.set(cacheKey, {
+          result: realResult,
+          expiresAt: now + this.cacheTtlMs,
+        });
+        return realResult;
       }
 
-      return {
+      const statusFallback: RouteResult = {
         distanceMeters: straightLineMeters,
         durationSeconds: null,
         etaMinutes: null,
         isRealTimeRouting: false,
         status: data.status || 'NO_ROUTE_FOUND',
       };
+      this.cache.set(cacheKey, {
+        result: statusFallback,
+        expiresAt: now + this.cacheTtlMs,
+      });
+      return statusFallback;
     } catch {
-      return {
+      const exceptionFallback: RouteResult = {
         distanceMeters: straightLineMeters,
         durationSeconds: null,
         etaMinutes: null,
         isRealTimeRouting: false,
         status: 'ROUTING_UNAVAILABLE',
       };
+      this.cache.set(cacheKey, {
+        result: exceptionFallback,
+        expiresAt: now + this.cacheTtlMs,
+      });
+      return exceptionFallback;
     }
   }
 }

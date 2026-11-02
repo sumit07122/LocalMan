@@ -180,7 +180,20 @@ export class DispatchService {
         throw new NotFoundError('Booking no longer exists');
       }
 
-      if (freshBooking.currentStatus !== 'REQUESTED' || freshBooking.providerId !== null) {
+      // Atomically assign booking to provider and advance FSM with conditional check
+      const claimResult = await tx.booking.updateMany({
+        where: {
+          id: freshBooking.id,
+          currentStatus: 'REQUESTED',
+          providerId: null,
+        },
+        data: {
+          providerId: provider.id,
+          currentStatus: 'PROVIDER_ACCEPTED',
+        },
+      });
+
+      if (claimResult.count === 0) {
         // Race condition: another provider claimed the booking first
         await tx.dispatchOffer.update({
           where: { id: offer.id },
@@ -191,19 +204,18 @@ export class DispatchService {
         );
       }
 
-      // Atomically assign booking to provider and advance FSM
-      const updatedBooking = await tx.booking.update({
+      const updatedBooking = await tx.booking.findUnique({
         where: { id: freshBooking.id },
-        data: {
-          providerId: provider.id,
-          currentStatus: 'PROVIDER_ACCEPTED',
-        },
         include: {
           service: true,
           address: true,
           customer: true,
         },
       });
+
+      if (!updatedBooking) {
+        throw new NotFoundError('Booking no longer exists');
+      }
 
       // Update winning offer to ACCEPTED
       const updatedOffer = await tx.dispatchOffer.update({

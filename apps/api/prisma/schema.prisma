@@ -48,6 +48,7 @@ model User {
   refreshTokens        RefreshToken[]
   conversationParticipations ConversationParticipant[]
   sentMessages         Message[]              @relation("UserSentMessages")
+  reviewReports        ReviewReport[]
 
   @@index([phoneNumber], name: "idx_users_phone")
   @@map("users")
@@ -99,6 +100,7 @@ model Address {
   bookings Booking[]
 
   @@index([userId], name: "idx_addresses_user")
+  @@index([userId, isDefault], name: "idx_addresses_user_default")
   @@map("addresses")
 }
 
@@ -177,11 +179,12 @@ model Provider {
 }
 
 model ProviderDocument {
-  id             String          @id @default(uuid())
-  providerId     String          @map("provider_id")
-  documentType   KycDocType      @map("document_type")
-  documentNumber String          @map("document_number") @db.VarChar(100)
-  fileUrl        String          @map("file_url")
+  id                   String          @id @default(uuid())
+  providerId           String          @map("provider_id")
+  documentType         KycDocType      @map("document_type")
+  documentNumber       String          @map("document_number") @db.VarChar(100)
+  maskedDocumentNumber String?         @map("masked_document_number") @db.VarChar(100)
+  fileUrl              String          @map("file_url")
   status         DocReviewStatus @default(PENDING)
   reviewNotes    String?         @map("review_notes")
   reviewedBy     String?         @map("reviewed_by")
@@ -327,6 +330,7 @@ model Booking {
 
   // Security OTP
   startOtp                 String            @map("start_otp") @db.VarChar(6)
+  startOtpHash             String?           @map("start_otp_hash") @db.VarChar(64)
   completionOtp            String?           @map("completion_otp") @db.VarChar(6)
 
   // Work Timestamps
@@ -382,6 +386,7 @@ model Booking {
 
   @@index([customerId, currentStatus], name: "idx_bookings_customer")
   @@index([providerId, currentStatus], name: "idx_bookings_provider")
+  @@index([scheduledDate], name: "idx_bookings_scheduled_date")
   @@index([customerId, idempotencyKey], name: "idx_bookings_customer_idempotency")
   @@map("bookings")
 }
@@ -511,10 +516,12 @@ model Refund {
   reason          String
   initiatedBy     String   @map("initiated_by")
   status          String   @default("PROCESSING") @db.VarChar(30)
+  idempotencyKey  String?  @unique @map("idempotency_key") @db.VarChar(120)
   createdAt       DateTime @default(now()) @map("created_at")
 
   payment Payment @relation(fields: [paymentId], references: [id])
 
+  @@index([paymentId], name: "idx_refunds_payment")
   @@map("refunds")
 }
 
@@ -578,7 +585,7 @@ model ProviderWallet {
   createdAt             DateTime            @default(now()) @map("created_at")
   updatedAt             DateTime            @updatedAt @map("updated_at")
 
-  provider      Provider            @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  provider      Provider            @relation(fields: [providerId], references: [id], onDelete: Restrict)
   ledgerEntries WalletLedgerEntry[]
 
   @@map("provider_wallets")
@@ -602,8 +609,8 @@ model WalletLedgerEntry {
   metadata                Json?
   createdAt               DateTime        @default(now()) @map("created_at")
 
-  wallet   ProviderWallet  @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  provider Provider        @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  wallet   ProviderWallet  @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  provider Provider        @relation(fields: [providerId], references: [id], onDelete: Restrict)
   booking  Booking?        @relation(fields: [bookingId], references: [id])
   payout   ProviderPayout? @relation(fields: [payoutId], references: [id])
 
@@ -617,23 +624,67 @@ model WalletLedgerEntry {
 // REVIEWS & DISPUTES
 // -----------------------------------------------------------------------------
 
+enum ReviewStatus {
+  PENDING
+  PUBLISHED
+  HIDDEN
+  REMOVED
+  FLAGGED
+}
+
 model Review {
-  id            String   @id @default(uuid())
-  bookingId     String   @unique @map("booking_id")
-  customerId    String   @map("customer_id")
-  providerId    String   @map("provider_id")
-  rating        Int
-  comment       String?
-  providerReply String?  @map("provider_reply")
-  isFlagged     Boolean  @default(false) @map("is_flagged")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id                  String       @id @default(uuid())
+  bookingId           String       @unique @map("booking_id")
+  customerId          String       @map("customer_id")
+  providerId          String       @map("provider_id")
+  rating              Int
+  title               String?      @db.VarChar(120)
+  body                String?
+  comment             String?
+  status              ReviewStatus @default(PUBLISHED)
+  isFlagged           Boolean      @default(false) @map("is_flagged")
+  providerResponse    String?      @map("provider_response")
+  providerReply       String?      @map("provider_reply")
+  providerRespondedAt DateTime?    @map("provider_responded_at")
+  moderatedAt         DateTime?    @map("moderated_at")
+  moderatedBy         String?      @map("moderated_by")
+  moderationReason    String?      @map("moderation_reason")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
 
-  booking  Booking  @relation(fields: [bookingId], references: [id])
-  customer User     @relation(fields: [customerId], references: [id])
-  provider Provider @relation(fields: [providerId], references: [id])
+  booking  Booking        @relation(fields: [bookingId], references: [id])
+  customer User           @relation(fields: [customerId], references: [id])
+  provider Provider       @relation(fields: [providerId], references: [id])
+  reports  ReviewReport[]
 
-  @@index([providerId, rating], name: "idx_reviews_provider")
+  @@unique([bookingId, customerId], name: "uq_reviews_booking_customer")
+  @@index([providerId, status], name: "idx_reviews_provider_status")
+  @@index([providerId, rating], name: "idx_reviews_provider_rating")
+  @@index([customerId], name: "idx_reviews_customer")
+  @@index([status], name: "idx_reviews_status")
+  @@index([createdAt], name: "idx_reviews_created_at")
   @@map("reviews")
+}
+
+model ReviewReport {
+  id         String    @id @default(uuid())
+  reviewId   String    @map("review_id")
+  reporterId String    @map("reporter_id")
+  reason     String    @db.VarChar(50)
+  details    String?
+  status     String    @default("PENDING") @db.VarChar(20)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  resolvedAt DateTime? @map("resolved_at")
+  resolvedBy String?   @map("resolved_by")
+
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reporter User   @relation(fields: [reporterId], references: [id])
+
+  @@unique([reviewId, reporterId], name: "uq_review_report_per_user")
+  @@index([reviewId], name: "idx_review_reports_review")
+  @@index([reporterId], name: "idx_review_reports_reporter")
+  @@index([status], name: "idx_review_reports_status")
+  @@map("review_reports")
 }
 
 model Complaint {

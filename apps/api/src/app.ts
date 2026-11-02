@@ -15,6 +15,9 @@ import { providerRoutes } from './modules/providers/provider.routes.js';
 import { paymentRoutes } from './modules/payments/payment.routes.js';
 import { adminRoutes } from './modules/admin/admin.routes.js';
 import { addressRoutes } from './modules/addresses/address.routes.js';
+import { reviewRoutes } from './modules/reviews/review.routes.js';
+import { reviewController } from './modules/reviews/review.controller.js';
+import { mediaRoutes } from './modules/media/media.routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -77,6 +80,12 @@ export async function buildApp(): Promise<FastifyInstance> {
       await api.register(addressRoutes, { prefix: '/addresses' });
       await api.register(categoryRoutes, { prefix: '/categories' });
       await api.register(serviceRoutes, { prefix: '/services' });
+      await api.register(reviewRoutes, { prefix: '/reviews' });
+      await api.register(mediaRoutes, { prefix: '/media' });
+
+      // Public Provider Reviews & Reputation routes
+      api.get('/providers/:providerId/reviews', reviewController.getProviderReviews);
+      api.get('/providers/:providerId/reputation', reviewController.getProviderReputation);
     },
     { prefix: env.API_PREFIX }
   );
