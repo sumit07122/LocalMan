@@ -948,10 +948,10 @@ export class ProviderService {
       .reduce((sum: number, m: any) => sum + m.totalPricePaisa, 0);
 
     const totalAmountPaisa =
-      booking.baseAmountPaisa +
-      booking.extraDurationAmountPaisa +
+      (booking.baseAmountPaisa || 0) +
+      (booking.extraDurationAmountPaisa || 0) +
       approvedMaterialsPaisa +
-      booking.taxAmountPaisa;
+      (booking.taxAmountPaisa || 0);
 
     const updated = await prisma.$transaction(async (tx) => {
       const b = await tx.booking.update({

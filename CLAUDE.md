@@ -107,3 +107,13 @@ CI test env uses mock providers: `STORAGE_PROVIDER=mock SMS_GATEWAY_PROVIDER=moc
   - Converted Flutter `deprecated_member_use` from `ignore` to `info`.
   - Added 11 automated security tests in `security-financial-invariants.test.ts`.
   - Generated `docs/PHASE_4F_1_SECURITY_REMEDIATION_REPORT.md`.
+- 2026-11-03: Phase 4G End-to-End Marketplace Integration complete:
+  - Created master multi-sided integration suite `apps/api/test/e2e-marketplace-integration.test.ts` (1,320+ lines, 14 tests, 5 suites, 100% pass rate).
+  - Verified complete 18-step customer journey (registration -> OTP -> catalog search -> booking -> dispatch matching -> map tracking -> chat -> start OTP -> checkout -> settlement -> review).
+  - Verified complete 15-step provider journey (registration -> trade setup -> Aadhaar/PAN KYC -> verification -> duty activation -> offer accept -> navigation -> arrival -> start OTP verification -> execution -> wallet -> payout request).
+  - Verified complete 10-step admin operations journey (metrics -> KYC queue review -> live bookings -> radar dispatch -> ledger audit -> payout approval -> review moderation -> catalog management -> audit logs).
+  - Verified 11 adversarial failure scenarios (atomic offer claim race condition 409 conflict, brute-force start OTP throttle 422, forged payment signature rejection 400, idempotent cancellation refund, deduplication).
+  - Resolved `NaN` amount poisoning in `completeJob()` and `updateBookingStatus()` caused by uninitialized extra duration fields.
+  - Aligned `PaymentService.createCheckoutSession` with canonical 15% platform commission / 1% TDS integer paisa math.
+  - Verified entire monorepo: API build (0 errors), Admin Web build (0 errors, Vite 2.25s), Customer App (107/107 tests), Provider App (31/31 tests), secret audit (clean).
+  - Generated `docs/PHASE_4G_END_TO_END_INTEGRATION_REPORT.md`.

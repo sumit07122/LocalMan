@@ -330,10 +330,10 @@ export class BookingService {
 
       updateData.materialsTotalPaisa = approvedMaterialsPaisa;
       updateData.totalAmountPaisa =
-        booking.baseAmountPaisa +
-        booking.extraDurationAmountPaisa +
+        (booking.baseAmountPaisa || 0) +
+        (booking.extraDurationAmountPaisa || 0) +
         approvedMaterialsPaisa +
-        booking.taxAmountPaisa;
+        (booking.taxAmountPaisa || 0);
 
       // Automatically move to PAYMENT_PENDING once job is completed
       updateData.currentStatus = BookingStatus.PAYMENT_PENDING;

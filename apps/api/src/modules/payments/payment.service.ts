@@ -100,8 +100,7 @@ export class PaymentService {
       booking.baseAmountPaisa +
       approvedMaterialsTotal +
       (booking.taxAmountPaisa || 0) +
-      (booking.extraDurationAmountPaisa || 0) +
-      (booking.platformFeePaisa || 0);
+      (booking.extraDurationAmountPaisa || 0);
 
     const amountPaisa = Math.max(calculatedPayablePaisa, booking.totalAmountPaisa);
 

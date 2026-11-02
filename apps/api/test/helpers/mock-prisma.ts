@@ -29,6 +29,8 @@ export interface MockDataStore {
   reviews: Map<string, any>;
   reviewReports: Map<string, any>;
   mediaAttachments: Map<string, any>;
+  otpVerifications: Map<string, any>;
+  userRoles: any[];
 }
 
 export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
@@ -61,6 +63,8 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
     reviews: initialStore?.reviews || new Map(),
     reviewReports: initialStore?.reviewReports || new Map(),
     mediaAttachments: initialStore?.mediaAttachments || new Map(),
+    otpVerifications: initialStore?.otpVerifications || new Map(),
+    userRoles: initialStore?.userRoles || [],
   };
 
   const mockPrisma = {
@@ -73,8 +77,12 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
             const addrs = Array.from(store.addresses.values())
               .filter((a) => a.userId === u.id)
               .sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
+            const provider = Array.from(store.providers.values()).find((p) => p.userId === u.id) || u.provider || null;
+            const roles = u.userRoles || store.userRoles.filter((r) => r.userId === u.id);
             return {
               ...u,
+              userRoles: roles,
+              provider,
               addresses: u.addresses || addrs,
             };
           }
@@ -91,12 +99,45 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
         }
         if (u) {
           Object.assign(u, update);
+          u.userRoles = u.userRoles || store.userRoles.filter((r) => r.userId === u.id);
+          u.provider = Array.from(store.providers.values()).find((p) => p.userId === u.id) || u.provider || null;
           return u;
         }
-        const created = { id: create.id || `usr_${Date.now()}`, ...create, userRoles: [] };
+        const created = { id: create.id || `usr_${Date.now()}`, isActive: true, ...create, userRoles: [] };
         store.users.set(created.id, created);
+        created.userRoles = created.userRoles || [];
+        created.provider = null;
         return created;
       },
+      update: async ({ where, data }: any) => {
+        let u = store.users.get(where.id);
+        if (!u) {
+          for (const existing of store.users.values()) {
+            if (where.phoneNumber && existing.phoneNumber === where.phoneNumber) {
+              u = existing;
+              break;
+            }
+          }
+        }
+        if (!u) throw new Error('User not found in mock store');
+        Object.assign(u, data);
+        return u;
+      },
+      count: async ({ where }: any = {}) => {
+        if (!where) return store.users.size;
+        let count = 0;
+        for (const u of store.users.values()) {
+          if (where.userRoles?.some?.roleId) {
+            const roleId = where.userRoles.some.roleId;
+            const roles = u.userRoles || store.userRoles.filter((r) => r.userId === u.id);
+            if (roles.some((r: any) => r.roleId === roleId)) count++;
+          } else {
+            count++;
+          }
+        }
+        return count;
+      },
+      findMany: async () => Array.from(store.users.values()),
     },
 
     provider: {
@@ -225,6 +266,15 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
         }
         return list;
       },
+      count: async ({ where }: any = {}) => {
+        let c = 0;
+        for (const d of store.providerDocuments.values()) {
+          if (where?.providerId && d.providerId !== where.providerId) continue;
+          if (where?.status && d.status !== where.status) continue;
+          c++;
+        }
+        return c;
+      },
       update: async ({ where, data }: any) => {
         const d = store.providerDocuments.get(where.id);
         if (!d) throw new Error('Document not found in mock store');
@@ -276,6 +326,63 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
           }
         }
         return { count };
+      },
+    },
+
+    otpVerification: {
+      count: async ({ where }: any = {}) => {
+        let count = 0;
+        for (const ov of store.otpVerifications.values()) {
+          if (where?.phoneNumber && ov.phoneNumber !== where.phoneNumber) continue;
+          if (where?.createdAt?.gte && ov.createdAt < where.createdAt.gte) continue;
+          count++;
+        }
+        return count;
+      },
+      create: async ({ data }: any) => {
+        const id = `otp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const record = { id, attempts: 0, isConsumed: false, createdAt: new Date(), ...data };
+        store.otpVerifications.set(id, record);
+        return record;
+      },
+      findFirst: async ({ where, orderBy }: any = {}) => {
+        let list = Array.from(store.otpVerifications.values()).filter((ov) => {
+          if (where?.phoneNumber && ov.phoneNumber !== where.phoneNumber) return false;
+          if (where?.isConsumed !== undefined && ov.isConsumed !== where.isConsumed) return false;
+          if (where?.expiresAt?.gt && ov.expiresAt <= where.expiresAt.gt) return false;
+          return true;
+        });
+        if (orderBy?.createdAt === 'desc') {
+          list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        }
+        return list[0] || null;
+      },
+      update: async ({ where, data }: any) => {
+        const ov = store.otpVerifications.get(where.id);
+        if (!ov) return null;
+        if (data.attempts?.increment) {
+          ov.attempts = (ov.attempts || 0) + data.attempts.increment;
+        }
+        if (data.isConsumed !== undefined) {
+          ov.isConsumed = data.isConsumed;
+        }
+        return ov;
+      },
+    },
+
+    userRole: {
+      create: async ({ data }: any) => {
+        const record = { id: `ur_${Date.now()}_${Math.random()}`, ...data };
+        store.userRoles.push(record);
+        const user = store.users.get(data.userId);
+        if (user) {
+          user.userRoles = user.userRoles || [];
+          user.userRoles.push(record);
+        }
+        return record;
+      },
+      findMany: async ({ where }: any = {}) => {
+        return store.userRoles.filter((r) => !where?.userId || r.userId === where.userId);
       },
     },
 
@@ -527,6 +634,26 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
         if (!p) throw new Error('Payment not found in mock store');
         Object.assign(p, data, { updatedAt: new Date() });
         return p;
+      },
+      aggregate: async ({ where, _sum }: any = {}) => {
+        let total = 0;
+        for (const p of store.payments.values()) {
+          if (where?.status && p.status !== where.status) continue;
+          total += (p.amountPaisa || 0);
+        }
+        return {
+          _sum: {
+            amountPaisa: total,
+          },
+        };
+      },
+      count: async ({ where }: any = {}) => {
+        let c = 0;
+        for (const p of store.payments.values()) {
+          if (where?.status && p.status !== where.status) continue;
+          c++;
+        }
+        return c;
       },
     },
 

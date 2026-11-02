@@ -119,8 +119,8 @@ export class CatalogService {
         estimatedDurationMinutes: s.estimatedDurationMinutes,
         isMaterialAllowed: s.isMaterialAllowed,
         isActive: s.isActive,
-        createdAt: s.createdAt.toISOString(),
-        updatedAt: s.updatedAt.toISOString(),
+        createdAt: s.createdAt ? (s.createdAt instanceof Date ? s.createdAt.toISOString() : String(s.createdAt)) : new Date().toISOString(),
+        updatedAt: s.updatedAt ? (s.updatedAt instanceof Date ? s.updatedAt.toISOString() : String(s.updatedAt)) : new Date().toISOString(),
       })),
     };
   }
@@ -199,8 +199,8 @@ export class CatalogService {
         estimatedDurationMinutes: s.estimatedDurationMinutes,
         isMaterialAllowed: s.isMaterialAllowed,
         isActive: s.isActive,
-        createdAt: s.createdAt.toISOString(),
-        updatedAt: s.updatedAt.toISOString(),
+        createdAt: s.createdAt ? (s.createdAt instanceof Date ? s.createdAt.toISOString() : String(s.createdAt)) : new Date().toISOString(),
+        updatedAt: s.updatedAt ? (s.updatedAt instanceof Date ? s.updatedAt.toISOString() : String(s.updatedAt)) : new Date().toISOString(),
       })),
       pagination: {
         page,
