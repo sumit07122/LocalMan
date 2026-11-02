@@ -6,6 +6,7 @@ import sensible from '@fastify/sensible';
 import rateLimit from '@fastify/rate-limit';
 
 import { env } from './config/env.js';
+import { prisma } from './config/database.js';
 import { globalErrorHandler } from './common/errors/error-handler.js';
 
 import { authRoutes } from './modules/auth/auth.routes.js';
@@ -38,8 +39,24 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Security headers & CORS
   await app.register(helmet, { contentSecurityPolicy: false });
+
+  const allowedOrigins = env.CORS_ALLOWED_ORIGINS.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   await app.register(cors, {
-    origin: true,
+    origin: (origin, cb) => {
+      // Allow requests with no origin (such as mobile applications, curl, server-to-server)
+      if (!origin) {
+        cb(null, true);
+        return;
+      }
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+        cb(null, true);
+        return;
+      }
+      cb(new Error(`Origin ${origin} not allowed by LocalMan CORS policy`), false);
+    },
     credentials: true,
   });
   await app.register(sensible);
@@ -58,7 +75,38 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Centralized Error Handler
   app.setErrorHandler(globalErrorHandler);
 
-  // Health Check
+  // Health Checks: Liveness, Readiness, and Legacy
+  app.get('/health/live', async () => {
+    return {
+      status: 'ok',
+      service: 'localman-api',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+    };
+  });
+
+  app.get('/health/ready', async (request, reply) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      return {
+        status: 'ok',
+        service: 'localman-api',
+        database: 'connected',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+      };
+    } catch (err: any) {
+      request.log.error(err, 'Database readiness check failed');
+      return reply.status(503).send({
+        status: 'error',
+        service: 'localman-api',
+        database: 'disconnected',
+        message: 'Database connection check failed',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   app.get('/health', async () => {
     return {
       status: 'ok',

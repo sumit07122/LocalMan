@@ -24,6 +24,14 @@ async function start() {
 
   const shutdown = async (signal: string) => {
     app.log.info(`Received ${signal}. Gracefully shutting down...`);
+
+    // Force exit after 10 seconds if graceful shutdown hangs
+    const forceExitTimer = setTimeout(() => {
+      app.log.error('Graceful shutdown timed out after 10 seconds. Forcing process exit.');
+      process.exit(1);
+    }, 10000);
+    forceExitTimer.unref();
+
     try {
       await app.close();
       await prisma.$disconnect();

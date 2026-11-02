@@ -53,7 +53,7 @@ jobs:
           java-version: '17'
 
       - name: Setup Flutter Stable
-        uses: subosito/flutter-action@f721806e60b296417ad0165c3abecda7444ac4d3 # v2.18.0
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: 'stable'
           cache: true

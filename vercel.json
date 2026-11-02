@@ -31,6 +31,12 @@
       }
     },
     {
+      "source": "/health/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
       "source": "/(.*)",
       "destination": {
         "service": "admin_web"

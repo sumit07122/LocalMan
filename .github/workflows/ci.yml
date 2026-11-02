@@ -134,7 +134,7 @@ jobs:
           java-version: '17'
 
       - name: Setup Flutter Stable
-        uses: subosito/flutter-action@f721806e60b296417ad0165c3abecda7444ac4d3 # v2.18.0
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: 'stable'
           cache: true
@@ -161,3 +161,59 @@ jobs:
       - name: Provider App — Unit & Widget Tests
         working-directory: apps/provider_app
         run: flutter test
+
+  build-staging-apks:
+    name: Build Staging Android APKs (Customer & Provider)
+    needs: [backend-ci, admin-web-ci, mobile-apps-ci]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Java 17
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4.7.0
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter Stable
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Customer App — Build Staging APK
+        working-directory: apps/customer_app
+        run: |
+          flutter pub get
+          flutter build apk --release \
+            --dart-define=API_BASE_URL="https://api-staging.localman.in/api/v1" \
+            --dart-define=ENV="staging"
+
+      - name: Provider App — Build Staging APK
+        working-directory: apps/provider_app
+        run: |
+          flutter pub get
+          flutter build apk --release \
+            --dart-define=API_BASE_URL="https://api-staging.localman.in/api/v1" \
+            --dart-define=ENV="staging"
+
+      - name: Package Staging APKs
+        run: |
+          mkdir -p dist/apks
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          BUILD_NUM="${{ github.run_number }}"
+          cp apps/customer_app/build/app/outputs/flutter-apk/app-release.apk "dist/apks/localman-customer-staging-b${BUILD_NUM}-${SHORT_SHA}.apk"
+          cp apps/customer_app/build/app/outputs/flutter-apk/app-release.apk "dist/apks/localman-customer-staging-latest.apk"
+          cp apps/provider_app/build/app/outputs/flutter-apk/app-release.apk "dist/apks/localman-provider-staging-b${BUILD_NUM}-${SHORT_SHA}.apk"
+          cp apps/provider_app/build/app/outputs/flutter-apk/app-release.apk "dist/apks/localman-provider-staging-latest.apk"
+
+      - name: Upload Staging APKs Artifact
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: localman-staging-apks-b${{ github.run_number }}
+          path: dist/apks/*.apk
+          retention-days: 14

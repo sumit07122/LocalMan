@@ -2146,6 +2146,10 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
       }
       return arg;
     },
+
+    $queryRaw: async (_query: any, ..._values: any[]) => {
+      return [{ '?column?': 1 }];
+    },
   };
 
   return mockPrisma;

@@ -10,11 +10,24 @@ const envSchema = z
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     API_PREFIX: z.string().default('/api/v1'),
 
-    JWT_SECRET: z.string().min(16).default('super_secret_localman_jwt_signing_key_replace_in_prod_2026_xyz'),
+    CORS_ALLOWED_ORIGINS: z
+      .string()
+      .default(
+        'http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,https://localman-admin-web.vercel.app'
+      ),
+
+    JWT_SECRET: z
+      .string()
+      .min(16)
+      .default('super_secret_localman_jwt_signing_key_replace_in_prod_2026_xyz'),
     JWT_EXPIRES_IN: z.string().default('15m'),
     REFRESH_TOKEN_EXPIRES_IN: z.string().default('30d'),
 
-    DATABASE_URL: z.string().default('postgresql://localman_user:localman_secure_dev_password_2026@localhost:5432/localman_db?schema=public'),
+    DATABASE_URL: z
+      .string()
+      .default(
+        'postgresql://localman_user:localman_secure_dev_password_2026@localhost:5432/localman_db?schema=public'
+      ),
 
     REDIS_HOST: z.string().default('localhost'),
     REDIS_PORT: z.coerce.number().default(6379),
@@ -46,16 +59,50 @@ const envSchema = z
   .refine(
     (data) => {
       if (data.NODE_ENV === 'production') {
-        return (
-          data.JWT_SECRET !== 'super_secret_localman_jwt_signing_key_replace_in_prod_2026_xyz' &&
-          !data.DATABASE_URL.includes('localman_secure_dev_password_2026') &&
-          data.RAZORPAY_KEY_SECRET !== 'rzp_secret_example'
+        const isDefaultJwt =
+          data.JWT_SECRET ===
+            'super_secret_localman_jwt_signing_key_replace_in_prod_2026_xyz' ||
+          data.JWT_SECRET.length < 32;
+        if (isDefaultJwt) return false;
+
+        const isDefaultPepper =
+          data.BOOKING_OTP_PEPPER ===
+          'localman_secure_booking_otp_pepper_secret_2026';
+        if (isDefaultPepper) return false;
+
+        const isDefaultDb = data.DATABASE_URL.includes(
+          'localman_secure_dev_password_2026'
         );
+        if (isDefaultDb) return false;
+
+        if (data.PAYMENT_GATEWAY_PROVIDER === 'razorpay') {
+          if (!data.RAZORPAY_KEY_ID || data.RAZORPAY_KEY_ID === 'rzp_test_example')
+            return false;
+          if (
+            !data.RAZORPAY_KEY_SECRET ||
+            data.RAZORPAY_KEY_SECRET === 'rzp_secret_example'
+          )
+            return false;
+        }
+
+        if (data.STORAGE_PROVIDER === 's3') {
+          if (
+            data.S3_ACCESS_KEY_ID === 'mock_access_key' ||
+            data.S3_SECRET_ACCESS_KEY === 'mock_secret_key'
+          )
+            return false;
+        }
+
+        if (data.SMS_GATEWAY_PROVIDER !== 'mock') {
+          if (!data.SMS_GATEWAY_API_KEY || data.SMS_GATEWAY_API_KEY === 'mock_key')
+            return false;
+        }
       }
       return true;
     },
     {
-      message: 'CRITICAL SECURITY ERROR: Production deployment cannot use hardcoded development secrets or fallback passwords.',
+      message:
+        'CRITICAL SECURITY ERROR: Production deployment cannot use hardcoded development secrets, weak passwords, or unconfigured cloud provider credentials.',
     }
   );
 

@@ -7,11 +7,12 @@ services:
     runtime: node
     plan: starter
     region: singapore
+    branch: develop
     buildCommand: npm install && npm run build --workspace=@localman/constants --workspace=@localman/contracts --workspace=@localman/design-tokens && npm run build --workspace=@localman/api
     preDeployCommand: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
     startCommand: npm run start --workspace=@localman/api
-    healthCheckPath: /health
-    autoDeploy: true
+    healthCheckPath: /health/ready
+    autoDeployTrigger: checksPass
     envVars:
       - key: NODE_ENV
         value: production
@@ -21,20 +22,12 @@ services:
         value: 0.0.0.0
       - key: API_PREFIX
         value: /api/v1
+      - key: CORS_ALLOWED_ORIGINS
+        value: http://localhost:5173,http://localhost:3000,https://localman-admin-web.vercel.app
       - key: DATABASE_URL
         fromDatabase:
           name: localman-postgres
           property: connectionString
-      - key: REDIS_HOST
-        fromService:
-          type: redis
-          name: localman-redis
-          property: host
-      - key: REDIS_PORT
-        fromService:
-          type: redis
-          name: localman-redis
-          property: port
       - key: JWT_SECRET
         generateValue: true
       - key: BOOKING_OTP_PEPPER
@@ -52,7 +45,7 @@ services:
       - key: RAZORPAY_WEBHOOK_SECRET
         sync: false
       - key: STORAGE_PROVIDER
-        value: s3
+        value: mock
       - key: S3_BUCKET_NAME
         value: localman-documents
       - key: S3_REGION
@@ -62,47 +55,8 @@ services:
       - key: S3_SECRET_ACCESS_KEY
         sync: false
 
-  # -------------------------------------------------------------
-  # 2. Background Dispatch & Timer Worker
-  # -------------------------------------------------------------
-  - type: worker
-    name: localman-worker
-    runtime: node
-    plan: starter
-    region: singapore
-    buildCommand: npm install && npm run build --workspace=@localman/constants --workspace=@localman/contracts && npm run build --workspace=@localman/api
-    startCommand: npm run start --workspace=@localman/api
-    autoDeploy: true
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: localman-postgres
-          property: connectionString
-      - key: REDIS_HOST
-        fromService:
-          type: redis
-          name: localman-redis
-          property: host
-      - key: REDIS_PORT
-        fromService:
-          type: redis
-          name: localman-redis
-          property: port
-      - key: JWT_SECRET
-        fromService:
-          type: web
-          name: localman-api
-          envVarKey: JWT_SECRET
-      - key: BOOKING_OTP_PEPPER
-        fromService:
-          type: web
-          name: localman-api
-          envVarKey: BOOKING_OTP_PEPPER
-
 # ---------------------------------------------------------------
-# 3. Managed PostgreSQL Database with PostGIS Support
+# 2. Managed PostgreSQL Database with PostGIS Support
 # ---------------------------------------------------------------
 databases:
   - name: localman-postgres
@@ -111,4 +65,3 @@ databases:
     plan: starter
     region: singapore
     postgresMajorVersion: 16
-
