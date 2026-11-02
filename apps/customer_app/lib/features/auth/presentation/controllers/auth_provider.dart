@@ -113,6 +113,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
     try {
       final session = await _authRepository.verifyOtp(phone, otp);
+      await _tokenStorage.saveTokens(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        userId: session.user.id,
+      );
       state = state.copyWith(
         status: AuthStatus.authenticated,
         user: session.user,
@@ -131,8 +136,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Logs out user and clears local tokens
   Future<void> logout() async {
     state = state.copyWith(status: AuthStatus.loading);
-    await _authRepository.logout();
-    state = const AuthState(status: AuthStatus.unauthenticated);
+    try {
+      await _authRepository.logout();
+    } finally {
+      await _tokenStorage.clearSession();
+      state = const AuthState(status: AuthStatus.unauthenticated);
+    }
   }
 
   /// Updates authenticated user in local state (e.g. after profile update)

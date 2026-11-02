@@ -6,7 +6,7 @@ enum PricingModelType {
 }
 
 class ServicePricing {
-  final PricingModelType pricingModel;
+  final PricingModelType pricingModelType;
   final int basePricePaisa;
   final int? hourlyRatePaisa;
   final int? inspectionFeePaisa;
@@ -38,16 +38,17 @@ class ServicePricing {
     this.inspectionFeePaisa,
     this.minimumHours,
     this.isMaterialAllowed = true,
-  }) : pricingModel = _parseModel(pricingModel);
+  }) : pricingModelType = _parseModel(pricingModel);
 
   factory ServicePricing.fromJson(Map<String, dynamic> json) {
+    final raw = json['pricing'] is Map ? (json['pricing'] as Map<String, dynamic>) : json;
     return ServicePricing(
-      pricingModel: json['pricingModel'],
-      basePricePaisa: (json['basePricePaisa'] as num?)?.toInt() ?? 0,
-      hourlyRatePaisa: (json['hourlyRatePaisa'] as num?)?.toInt(),
-      inspectionFeePaisa: (json['inspectionFeePaisa'] as num?)?.toInt(),
-      minimumHours: (json['minimumHours'] as num?)?.toInt(),
-      isMaterialAllowed: json['isMaterialAllowed'] as bool? ?? true,
+      pricingModel: raw['pricingModel'],
+      basePricePaisa: (raw['basePricePaisa'] as num?)?.toInt() ?? 0,
+      hourlyRatePaisa: (raw['hourlyRatePaisa'] as num?)?.toInt(),
+      inspectionFeePaisa: (raw['inspectionFeePaisa'] as num?)?.toInt(),
+      minimumHours: (raw['minimumHours'] as num?)?.toInt(),
+      isMaterialAllowed: raw['isMaterialAllowed'] as bool? ?? true,
     );
   }
 
@@ -59,8 +60,10 @@ class ServicePricing {
     'isMaterialAllowed': isMaterialAllowed,
   };
 
+  String get pricingModel => pricingModelKey;
+
   String get pricingModelKey {
-    switch (pricingModel) {
+    switch (pricingModelType) {
       case PricingModelType.hourly:
         return 'HOURLY';
       case PricingModelType.inspectionQuote:
@@ -73,7 +76,7 @@ class ServicePricing {
   }
 
   String get pricingModelBadge {
-    switch (pricingModel) {
+    switch (pricingModelType) {
       case PricingModelType.fixedPrice:
         return 'Fixed Price';
       case PricingModelType.hourly:
@@ -87,17 +90,18 @@ class ServicePricing {
 
   /// Formatted rupee presentation for catalog cards and headers
   String get formattedPrice {
-    switch (pricingModel) {
+    switch (pricingModelType) {
       case PricingModelType.fixedPrice:
         final rupees = (basePricePaisa / 100).round();
         return '₹$rupees';
       case PricingModelType.hourly:
         final base = (basePricePaisa / 100).round();
         final hourly = hourlyRatePaisa != null ? (hourlyRatePaisa! / 100).round() : null;
-        if (hourly != null && hourly != base) {
+        if (hourly != null && base > 0 && hourly != base) {
           return '₹$base for 1st hr (₹$hourly/hr thereafter)';
         }
-        return '₹$base/hr';
+        final rate = hourly ?? base;
+        return '₹$rate/hr';
       case PricingModelType.inspectionQuote:
         final fee = inspectionFeePaisa != null
             ? (inspectionFeePaisa! / 100).round()
@@ -113,7 +117,7 @@ class ServicePricing {
 
   /// Detailed customer explanation of how pricing works for this service
   String get customerExplanation {
-    switch (pricingModel) {
+    switch (pricingModelType) {
       case PricingModelType.fixedPrice:
         return 'The job price is fixed and confirmed upfront. Any replacement materials or parts requested will require your prior approval.';
       case PricingModelType.hourly:
@@ -125,12 +129,13 @@ class ServicePricing {
     }
   }
 
-  bool get isFixedPrice => pricingModel == PricingModelType.fixedPrice;
-  bool get isHourly => pricingModel == PricingModelType.hourly;
-  bool get isInspectionQuote => pricingModel == PricingModelType.inspectionQuote;
-  bool get isCustomQuote => pricingModel == PricingModelType.customQuote;
+  bool get isFixedPrice => pricingModelType == PricingModelType.fixedPrice;
+  bool get isHourly => pricingModelType == PricingModelType.hourly;
+  bool get isInspectionQuote => pricingModelType == PricingModelType.inspectionQuote;
+  bool get isCustomQuote => pricingModelType == PricingModelType.customQuote;
+
   String get displayPrice {
-    switch (pricingModel) {
+    switch (pricingModelType) {
       case PricingModelType.fixedPrice:
         return '₹${(basePricePaisa / 100).toStringAsFixed(2)}';
       case PricingModelType.hourly:
@@ -143,5 +148,6 @@ class ServicePricing {
         return 'Quote Required';
     }
   }
+
   String get explanation => customerExplanation;
 }

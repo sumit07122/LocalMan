@@ -25,6 +25,11 @@ final providerRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
+      // Allow direct preview for demo / review mode
+      if (state.uri.queryParameters['preview'] == 'true') {
+        return null;
+      }
+
       // 2. Unauthenticated users cannot access protected routes
       if (!isAuth && !isLoggingIn) {
         return '/login';

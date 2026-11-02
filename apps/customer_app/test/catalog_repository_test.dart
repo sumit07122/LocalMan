@@ -78,12 +78,14 @@ class MockCatalogRepository implements ICatalogRepository {
       throw NetworkException(
         'The request timed out. Please check your connection.',
         ApiError.timeout(),
+        408,
       );
     }
     if (shouldBeOffline) {
       throw NetworkException(
         'No internet connection. Please verify your network.',
         ApiError.network(),
+        0,
       );
     }
   }

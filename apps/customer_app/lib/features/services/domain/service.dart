@@ -14,7 +14,7 @@ class ServiceItem {
   final String slug;
   final String? description;
   final ServicePricing pricing;
-  final int estimatedDurationMinutes;
+  final int? estimatedDurationMinutes;
   final bool isMaterialAllowed;
   final bool isActive;
   final DateTime? createdAt;
@@ -30,7 +30,7 @@ class ServiceItem {
     required this.slug,
     this.description,
     required this.pricing,
-    this.estimatedDurationMinutes = 60,
+    this.estimatedDurationMinutes,
     this.isMaterialAllowed = true,
     this.isActive = true,
     this.createdAt,
@@ -46,7 +46,7 @@ class ServiceItem {
       slug: json['slug'] as String? ?? '',
       description: json['description'] as String?,
       pricing: ServicePricing.fromJson(json),
-      estimatedDurationMinutes: (json['estimatedDurationMinutes'] as num?)?.toInt() ?? 60,
+      estimatedDurationMinutes: (json['estimatedDurationMinutes'] as num?)?.toInt(),
       isMaterialAllowed: json['isMaterialAllowed'] as bool? ?? true,
       isActive: json['isActive'] as bool? ?? true,
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
@@ -62,22 +62,23 @@ class ServiceItem {
     'slug': slug,
     if (description != null) 'description': description,
     ...pricing.toJson(),
-    'estimatedDurationMinutes': estimatedDurationMinutes,
+    if (estimatedDurationMinutes != null) 'estimatedDurationMinutes': estimatedDurationMinutes,
     'isMaterialAllowed': isMaterialAllowed,
     'isActive': isActive,
     if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
     if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
   };
 
-  String get formattedDuration {
-    if (estimatedDurationMinutes < 60) {
+  String? get formattedDuration {
+    if (estimatedDurationMinutes == null) return null;
+    if (estimatedDurationMinutes! < 60) {
       return '$estimatedDurationMinutes mins';
     }
-    final hours = estimatedDurationMinutes ~/ 60;
-    final mins = estimatedDurationMinutes % 60;
+    final hours = estimatedDurationMinutes! ~/ 60;
+    final mins = estimatedDurationMinutes! % 60;
     if (mins == 0) {
-      return hours == 1 ? '1 hour' : '$hours hours';
+      return '$hours hr${hours > 1 ? 's' : ''}';
     }
-    return '${hours}h ${mins}m';
+    return '$hours hr${hours > 1 ? 's' : ''} $mins mins';
   }
 }

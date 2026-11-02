@@ -208,7 +208,7 @@ class BookingItem {
       providerId != null || assignedProvider != null;
 
   String get displayTotal {
-    if (pricingModel == 'CUSTOM_QUOTE') {
+    if (pricingModel == 'CUSTOM_QUOTE' || totalAmountPaisa == 0) {
       return 'Quote Required';
     }
     if (pricingModel == 'INSPECTION_QUOTE') {
@@ -229,6 +229,7 @@ class BookingItem {
       case 'ARRIVED':
         return 'Pro Arrived';
       case 'JOB_STARTED':
+      case 'IN_PROGRESS':
         return 'In Progress';
       case 'JOB_COMPLETED':
         return 'Completed';
@@ -251,6 +252,7 @@ class BookingItem {
       case 'PROVIDER_ACCEPTED':
         return const Color(0xFF2563EB); // Blue
       case 'JOB_STARTED':
+      case 'IN_PROGRESS':
       case 'PROVIDER_ON_THE_WAY':
       case 'ARRIVED':
         return const Color(0xFF7C3AED); // Purple
@@ -296,7 +298,11 @@ class BookingItem {
       serviceId: json['serviceId'] as String? ?? '',
       addressId: json['addressId'] as String? ?? '',
       currentStatus: (json['currentStatus'] ?? json['status']) as String? ?? 'REQUESTED',
-      pricingModel: json['pricingModel'] as String? ?? 'FIXED_PRICE',
+      pricingModel: json['pricingModel'] as String? ??
+          (json['pricingSnapshot'] is Map
+              ? (json['pricingSnapshot'] as Map)['pricingModel'] as String?
+              : null) ??
+          'FIXED_PRICE',
       scheduledDate: json['scheduledDate'] as String? ?? '',
       scheduledTimeSlot: json['scheduledTimeSlot'] as String? ?? '',
       startOtp: json['startOtp'] as String?,

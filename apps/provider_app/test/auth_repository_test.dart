@@ -1,9 +1,22 @@
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:localman_provider/core/network/api_client.dart';
 import 'package:localman_provider/core/storage/token_storage.dart';
 import 'package:localman_provider/features/auth/data/auth_repository.dart';
 import 'token_storage_test.dart';
+
+class _MockHttpAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+    return ResponseBody.fromString('{"success": true}', 200, headers: {
+      Headers.contentTypeHeader: [Headers.jsonContentType],
+    });
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
 
 void main() {
   group('AuthRepository Contract & Flow Tests', () {
@@ -14,9 +27,9 @@ void main() {
 
     setUp(() {
       dio = Dio();
+      dio.httpClientAdapter = _MockHttpAdapter();
       mockSecureStorage = MockFlutterSecureStorage();
-      final tokenStorage = mockSecureStorage; // implements storage interface via TokenStorage
-      final realTokenStorage = TokenStorage(storage: tokenStorage);
+      final realTokenStorage = TokenStorage(storage: mockSecureStorage);
 
       apiClient = ApiClient(
         tokenStorage: realTokenStorage,
@@ -30,9 +43,6 @@ void main() {
     });
 
     test('verifyOtp should parse response and save tokens to secure storage', () async {
-      // Configure Dio adapter with mock response
-      dio.httpClientAdapter = HttpClientAdapter();
-      // Test the contract using TokenStorage
       final storage = TokenStorage(storage: mockSecureStorage);
       await storage.saveTokens(
         accessToken: 'access_jwt_valid',

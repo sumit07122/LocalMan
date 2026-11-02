@@ -44,7 +44,7 @@ class BookingCreationState {
     if (service == null) return 0;
     const gstRate = 0.18;
 
-    switch (service!.pricing.pricingModel) {
+    switch (service!.pricing.pricingModelType) {
       case PricingModelType.fixedPrice: {
         final base = service!.pricing.basePricePaisa;
         final tax = (base * gstRate).round();
@@ -68,10 +68,10 @@ class BookingCreationState {
 
   String get displayEstimatedPrice {
     if (service == null) return '₹0';
-    if (service!.pricing.pricingModel == PricingModelType.customQuote) {
+    if (service!.pricing.isCustomQuote) {
       return 'Quote Required';
     }
-    if (service!.pricing.pricingModel == PricingModelType.inspectionQuote) {
+    if (service!.pricing.isInspectionQuote) {
       return '₹${(estimatedTotalPaisa / 100).toStringAsFixed(0)} (Visiting Fee)';
     }
     return '₹${(estimatedTotalPaisa / 100).toStringAsFixed(0)}';
@@ -180,7 +180,7 @@ class BookingCreationNotifier extends StateNotifier<BookingCreationState> {
         scheduledDate: formattedDate,
         scheduledTimeSlot: state.selectedTimeSlot!,
         pricingModel: state.service!.pricing.pricingModelKey,
-        hours: state.service!.pricing.pricingModel == PricingModelType.hourly ? state.hours : null,
+        hours: state.service!.pricing.isHourly ? state.hours : null,
         customerNotes: state.customerNotes.trim().isNotEmpty
             ? state.customerNotes.trim()
             : null,

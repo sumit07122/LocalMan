@@ -69,9 +69,10 @@ void main() {
       expect(service.pricing.pricingModel, 'FIXED_PRICE');
       expect(service.pricing.isFixedPrice, true);
       expect(service.pricing.basePricePaisa, 49900);
-      expect(service.pricing.displayPrice, '₹499');
+      expect(service.pricing.displayPrice, '₹499.00');
+      expect(service.pricing.formattedPrice, '₹499');
       expect(service.pricing.pricingModelBadge, 'Fixed Price');
-      expect(service.pricing.explanation, contains('Fixed upfront price'));
+      expect(service.pricing.explanation, contains('fixed and confirmed'));
     });
 
     test('3. ServiceItem parses HOURLY pricing model correctly', () {
@@ -93,9 +94,10 @@ void main() {
       expect(service.pricing.pricingModel, 'HOURLY');
       expect(service.pricing.isHourly, true);
       expect(service.pricing.hourlyRatePaisa, 29900);
-      expect(service.pricing.displayPrice, '₹299/hr');
-      expect(service.pricing.pricingModelBadge, 'Hourly Rate');
-      expect(service.pricing.explanation, contains('Charged by time'));
+      expect(service.pricing.displayPrice, '₹299.00/hr');
+      expect(service.pricing.formattedPrice, '₹299/hr');
+      expect(service.pricing.pricingModelBadge, 'Charged by Time');
+      expect(service.pricing.explanation, contains('actual service duration'));
     });
 
     test('4. ServiceItem parses INSPECTION_QUOTE model correctly', () {
@@ -115,11 +117,12 @@ void main() {
       expect(service.pricing.pricingModel, 'INSPECTION_QUOTE');
       expect(service.pricing.isInspectionQuote, true);
       expect(service.pricing.inspectionFeePaisa, 9900);
-      expect(service.pricing.displayPrice, 'Inspection Quote');
-      expect(service.pricing.pricingModelBadge, 'Inspection Quote');
+      expect(service.pricing.displayPrice, '₹99.00 Inspection');
+      expect(service.pricing.formattedPrice, '₹99 inspection visit fee');
+      expect(service.pricing.pricingModelBadge, 'Inspection Required');
       expect(
         service.pricing.explanation,
-        'Inspection required — final price determined after on-site professional inspection.',
+        contains('inspect the problem'),
       );
     });
 
@@ -138,11 +141,12 @@ void main() {
 
       expect(service.pricing.pricingModel, 'CUSTOM_QUOTE');
       expect(service.pricing.isCustomQuote, true);
-      expect(service.pricing.displayPrice, 'Request Quote');
-      expect(service.pricing.pricingModelBadge, 'Quote Based');
+      expect(service.pricing.displayPrice, 'Quote Required');
+      expect(service.pricing.formattedPrice, 'Receive provider quotes');
+      expect(service.pricing.pricingModelBadge, 'Quotes on Request');
       expect(
         service.pricing.explanation,
-        'Request the service and receive competitive quotes from verified local providers.',
+        contains('competitive, itemized quotations'),
       );
     });
 

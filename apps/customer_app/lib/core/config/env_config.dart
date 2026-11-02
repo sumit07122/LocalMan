@@ -45,13 +45,13 @@ class EnvConfig {
   /// Resolved base URL with mandatory production HTTPS enforcement
   static String get baseUrl {
     if (_configuredBaseUrl.isNotEmpty) {
-      if (kReleaseMode && !_configuredBaseUrl.startsWith('https://')) {
+      if (isProduction && !_configuredBaseUrl.startsWith('https://')) {
         throw StateError('SECURITY ALERT: Production build must use HTTPS for API_BASE_URL.');
       }
       return _configuredBaseUrl;
     }
 
-    if (kReleaseMode) {
+    if (isProduction) {
       throw StateError(
         'SECURITY ALERT: API_BASE_URL must be explicitly provided in release builds via --dart-define=API_BASE_URL=https://...',
       );

@@ -379,10 +379,10 @@ class _SearchResultCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppTheme.brandAccent.withOpacity(0.12),
+                      color: const Color(0xFFECFDF5),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: AppTheme.brandAccent.withOpacity(0.3),
+                        color: const Color(0xFFA7F3D0),
                       ),
                     ),
                     child: Text(
@@ -390,7 +390,7 @@ class _SearchResultCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFFB45309),
+                        color: Color(0xFF047857),
                       ),
                     ),
                   ),

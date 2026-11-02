@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../auth/domain/auth_state.dart';
 import '../../../jobs/data/booking_repository.dart';
 import '../../../wallet/data/wallet_repository.dart';
@@ -296,17 +297,23 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Duty Status Switch Card
+              // Phase 4E: Unmistakable Duty Status Card
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: _isOnline ? const Color(0xFF0F172A) : const Color(0xFF334155),
+                  color: _isOnline ? AppTheme.deepInk : AppTheme.surfaceWhite,
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _isOnline ? const Color(0xFF12A879).withOpacity(0.5) : AppTheme.subtleBorder,
+                    width: 1.5,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
+                      color: _isOnline
+                          ? const Color(0xFF12A879).withOpacity(0.12)
+                          : Colors.black.withOpacity(0.04),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
@@ -317,11 +324,11 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
                       height: 14,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: _isOnline ? const Color(0xFF10B981) : Colors.redAccent,
+                        color: _isOnline ? const Color(0xFF12A879) : const Color(0xFF98A2B3),
                         boxShadow: [
                           if (_isOnline)
                             BoxShadow(
-                              color: const Color(0xFF10B981).withOpacity(0.6),
+                              color: const Color(0xFF12A879).withOpacity(0.7),
                               blurRadius: 10,
                               spreadRadius: 2,
                             ),
@@ -333,36 +340,67 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            _isOnline ? 'DUTY STATUS: ONLINE' : 'DUTY STATUS: OFFLINE',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                _isOnline ? 'DUTY STATUS: ONLINE' : 'DUTY STATUS: OFFLINE',
+                                style: TextStyle(
+                                  color: _isOnline ? Colors.white : AppTheme.primaryText,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _isOnline
+                                      ? const Color(0xFF12A879).withOpacity(0.2)
+                                      : const Color(0xFFF2F4F7),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  _isOnline ? 'DISPATCH READY' : 'PAUSED',
+                                  style: TextStyle(
+                                    color: _isOnline ? const Color(0xFF34D399) : AppTheme.secondaryText,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             _isOnline
-                                ? 'Online on partner network • Location beacon active'
-                                : 'You are offline. Turn on switch to indicate duty availability.',
-                            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                                ? 'Live on LocalMan Partner Network • GPS beacon syncing'
+                                : 'Duty is paused. Turn switch ON to receive incoming customer requests.',
+                            style: TextStyle(
+                              color: _isOnline ? const Color(0xFF94A3B8) : AppTheme.secondaryText,
+                              fontSize: 11,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     if (_isTogglingOnline)
-                      const SizedBox(
+                      SizedBox(
                         width: 24,
                         height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: _isOnline ? Colors.white : AppTheme.primaryBlue,
+                        ),
                       )
                     else
                       Switch.adaptive(
                         value: _isOnline,
-                        activeColor: const Color(0xFF10B981),
-                        activeTrackColor: const Color(0xFF065F46),
+                        activeColor: const Color(0xFF12A879),
+                        activeTrackColor: const Color(0xFF064E3B),
+                        inactiveThumbColor: const Color(0xFF98A2B3),
+                        inactiveTrackColor: const Color(0xFFEAECF0),
                         onChanged: _toggleDuty,
                       ),
                   ],
@@ -591,24 +629,44 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppTheme.surfaceWhite,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          border: Border.all(color: AppTheme.subtleBorder),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.02),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Settlement Balance', style: TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w600)),
-                                Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFF94A3B8)),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEFF6FF),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Icon(Icons.account_balance_wallet, size: 14, color: AppTheme.primaryBlue),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text('Settlement', style: TextStyle(color: AppTheme.secondaryText, fontSize: 12, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                                const Icon(Icons.arrow_forward_ios, size: 11, color: AppTheme.mutedText),
                               ],
                             ),
-                            const SizedBox(height: 6),
-                            Text(availableBalanceStr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                            const SizedBox(height: 8),
+                            Text(availableBalanceStr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.primaryText)),
                             const SizedBox(height: 4),
-                            const Text('Backend Ledger Auth', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                            const Text('Backend Ledger Auth', style: TextStyle(fontSize: 11, color: AppTheme.secondaryText)),
                           ],
                         ),
                       ),
@@ -619,22 +677,42 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppTheme.surfaceWhite,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: AppTheme.subtleBorder),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Assigned Tasks', style: TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 6),
-                          Text('${activeBookings.length} Active', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFECFDF5),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Icon(Icons.task_alt, size: 14, color: AppTheme.dutyOnline),
+                              ),
+                              const SizedBox(width: 6),
+                              const Text('Assigned Tasks', style: TextStyle(color: AppTheme.secondaryText, fontSize: 12, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text('${activeBookings.length} Active', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.primaryText)),
                           const SizedBox(height: 4),
                           Text(
                             activeBookings.isNotEmpty ? 'Tasks In Progress' : 'Awaiting Dispatch',
                             style: TextStyle(
                               fontSize: 11,
-                              color: activeBookings.isNotEmpty ? const Color(0xFF10B981) : const Color(0xFF0284C7),
+                              color: activeBookings.isNotEmpty ? AppTheme.dutyOnline : AppTheme.primaryBlue,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -899,27 +977,37 @@ class _ProviderDashboardScreenState extends ConsumerState<ProviderDashboardScree
           ),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentNavIndex,
-        selectedItemColor: const Color(0xFFF59E0B),
-        unselectedItemColor: const Color(0xFF64748B),
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) {
-          setState(() => _currentNavIndex = index);
-          if (index == 1) {
-            context.push('/wallet');
-          } else if (index == 2) {
-            context.push('/kyc');
-          } else if (index == 3) {
-            context.push('/reputation');
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet), label: 'Wallet'),
-          BottomNavigationBarItem(icon: Icon(Icons.badge), label: 'KYC & Profile'),
-          BottomNavigationBarItem(icon: Icon(Icons.star_outline), label: 'Reputation'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: AppTheme.subtleBorder, width: 1)),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentNavIndex,
+          selectedItemColor: AppTheme.primaryBlue,
+          unselectedItemColor: AppTheme.secondaryText,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          type: BottomNavigationBarType.fixed,
+          onTap: (index) {
+            setState(() => _currentNavIndex = index);
+            if (index == 1) {
+              context.push('/wallet');
+            } else if (index == 2) {
+              context.push('/kyc');
+            } else if (index == 3) {
+              context.push('/reputation');
+            }
+          },
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Dashboard'),
+            BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_rounded), label: 'Wallet'),
+            BottomNavigationBarItem(icon: Icon(Icons.verified_user_rounded), label: 'KYC & Profile'),
+            BottomNavigationBarItem(icon: Icon(Icons.star_rounded), label: 'Reputation'),
+          ],
+        ),
       ),
     );
   }

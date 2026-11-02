@@ -70,17 +70,17 @@ class _CategoryServicesScreenState
               SliverToBoxAdapter(
                 child: Container(
                   margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppTheme.brandPrimary,
-                        AppTheme.brandPrimary.withOpacity(0.85),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: AppTheme.deepInk,
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color.fromRGBO(16, 24, 40, 0.08),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,10 +334,10 @@ class _ServiceListCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.brandAccent.withOpacity(0.12),
+                      color: const Color(0xFFECFDF5),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: AppTheme.brandAccent.withOpacity(0.3),
+                        color: const Color(0xFFA7F3D0),
                       ),
                     ),
                     child: Text(
@@ -345,7 +345,7 @@ class _ServiceListCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFFB45309),
+                        color: Color(0xFF047857),
                       ),
                     ),
                   ),

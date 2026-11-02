@@ -20,7 +20,7 @@ The LocalMan platform enforces strong authentication and ownership validation wi
 
 ### 2.1 Storage of Sensitive Personal Data & Financial Identifiers (DPDPA / Aadhaar Act)
 * **Finding**: In [apps/api/prisma/schema.prisma](file:///c:/Users/hp/OneDrive/Desktop/antigravity%20workspace/localman/apps/api/prisma/schema.prisma#L180-L196), `ProviderDocument` defines:
-  ```prisma
+  ```prisma 
   model ProviderDocument {
     id String @id @default(uuid())
     providerId String @map("provider_id")

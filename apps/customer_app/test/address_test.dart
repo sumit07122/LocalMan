@@ -6,6 +6,7 @@ import 'package:localman_customer/features/addresses/presentation/controllers/ad
 class MockAddressRepository implements IAddressRepository {
   final List<Address> mockStore = [];
   bool shouldFail = false;
+  int _addressCounter = 0;
 
   @override
   Future<List<Address>> listAddresses() async {
@@ -36,7 +37,7 @@ class MockAddressRepository implements IAddressRepository {
     }
 
     final addr = Address(
-      id: 'addr_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'addr_${DateTime.now().microsecondsSinceEpoch}_${++_addressCounter}',
       userId: 'usr_test_cust',
       label: label,
       addressLine1: addressLine1,

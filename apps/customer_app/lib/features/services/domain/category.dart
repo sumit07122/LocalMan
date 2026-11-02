@@ -5,6 +5,7 @@ class ServiceCategoryItem {
   final String? parentId;
   final String name;
   final String slug;
+  final String? description;
   final String? iconUrl;
   final String? imageUrl;
   final int displayOrder;
@@ -18,6 +19,7 @@ class ServiceCategoryItem {
     this.parentId,
     required this.name,
     required this.slug,
+    this.description,
     this.iconUrl,
     this.imageUrl,
     this.displayOrder = 0,
@@ -33,16 +35,23 @@ class ServiceCategoryItem {
       parentId: json['parentId'] as String? ?? json['parent_id'] as String?,
       name: json['name'] as String? ?? '',
       slug: json['slug'] as String? ?? '',
-      iconUrl: json['iconUrl'] as String? ?? json['icon_url'] as String?,
+      description: json['description'] as String?,
+      iconUrl: json['iconUrl'] as String? ??
+          json['icon_url'] as String? ??
+          json['icon'] as String?,
       imageUrl: json['imageUrl'] as String? ?? json['image_url'] as String?,
-      displayOrder: (json['displayOrder'] as num?)?.toInt() ?? 0,
+      displayOrder: (json['displayOrder'] as num?)?.toInt() ??
+          (json['sortOrder'] as num?)?.toInt() ??
+          0,
       isActive: json['isActive'] as bool? ?? true,
       serviceCount: (json['serviceCount'] as num?)?.toInt() ??
+          (json['servicesCount'] as num?)?.toInt() ??
           (json['_count'] is Map && (json['_count'] as Map)['services'] != null
               ? ((json['_count'] as Map)['services'] as num).toInt()
               : 0),
       children: (json['children'] as List<dynamic>?)
-              ?.map((item) => ServiceCategoryItem.fromJson(item as Map<String, dynamic>))
+              ?.map((item) =>
+                  ServiceCategoryItem.fromJson(item as Map<String, dynamic>))
               .toList() ??
           const [],
       services: (json['services'] as List<dynamic>?)
@@ -57,6 +66,7 @@ class ServiceCategoryItem {
     if (parentId != null) 'parentId': parentId,
     'name': name,
     'slug': slug,
+    if (description != null) 'description': description,
     if (iconUrl != null) 'iconUrl': iconUrl,
     if (imageUrl != null) 'imageUrl': imageUrl,
     'displayOrder': displayOrder,
@@ -71,6 +81,7 @@ class ServiceCategoryItem {
     String? parentId,
     String? name,
     String? slug,
+    String? description,
     String? iconUrl,
     String? imageUrl,
     int? displayOrder,
@@ -84,6 +95,7 @@ class ServiceCategoryItem {
       parentId: parentId ?? this.parentId,
       name: name ?? this.name,
       slug: slug ?? this.slug,
+      description: description ?? this.description,
       iconUrl: iconUrl ?? this.iconUrl,
       imageUrl: imageUrl ?? this.imageUrl,
       displayOrder: displayOrder ?? this.displayOrder,
@@ -95,6 +107,6 @@ class ServiceCategoryItem {
   }
 
   String? get icon => iconUrl;
-  String? get description => null;
   int get servicesCount => serviceCount;
+  int get sortOrder => displayOrder;
 }

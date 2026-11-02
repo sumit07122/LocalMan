@@ -12,27 +12,28 @@ class CustomerHomeScreen extends ConsumerWidget {
   const CustomerHomeScreen({super.key});
 
   IconData _getCategoryIcon(String? icon, String slug) {
-    if (slug.contains('plumb')) return Icons.plumbing;
-    if (slug.contains('electr')) return Icons.bolt;
-    if (slug.contains('clean')) return Icons.cleaning_services;
-    if (slug.contains('ac') || slug.contains('appliance')) return Icons.ac_unit;
-    if (slug.contains('carpen')) return Icons.carpenter;
-    if (slug.contains('paint')) return Icons.format_paint;
-    if (slug.contains('pest')) return Icons.pest_control;
-    if (slug.contains('pack') || slug.contains('mov')) return Icons.local_shipping;
-    return Icons.build_outlined;
+    final s = slug.toLowerCase();
+    if (s.contains('plumb')) return Icons.plumbing_outlined;
+    if (s.contains('electr')) return Icons.bolt_outlined;
+    if (s.contains('clean')) return Icons.cleaning_services_outlined;
+    if (s.contains('ac') || s.contains('appliance')) return Icons.ac_unit_outlined;
+    if (s.contains('carpen')) return Icons.carpenter_outlined;
+    if (s.contains('paint')) return Icons.format_paint_outlined;
+    if (s.contains('pest')) return Icons.pest_control_outlined;
+    if (s.contains('pack') || s.contains('mov')) return Icons.local_shipping_outlined;
+    return Icons.handyman_outlined;
   }
 
   Color _getCategoryColor(int index) {
     const colors = [
-      Color(0xFF2563EB),
-      Color(0xFFD97706),
-      Color(0xFF0284C7),
-      Color(0xFF0D9488),
-      Color(0xFF78350F),
-      Color(0xFF16A34A),
-      Color(0xFFEA580C),
-      Color(0xFF4F46E5),
+      Color(0xFF315EFB), // Primary Blue
+      Color(0xFF12A879), // Success Emerald
+      Color(0xFFF5A524), // Amber Warmth
+      Color(0xFF8B5CF6), // Royal Purple
+      Color(0xFF0EA5E9), // Sky Blue
+      Color(0xFFEC4899), // Pink
+      Color(0xFF10B981), // Mint
+      Color(0xFF6366F1), // Indigo
     ];
     return colors[index % colors.length];
   }
@@ -46,7 +47,11 @@ class CustomerHomeScreen extends ConsumerWidget {
     final categoriesAsync = ref.watch(categoriesFutureProvider);
 
     return Scaffold(
+      backgroundColor: AppTheme.softBackground,
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 1,
         title: InkWell(
           onTap: () => context.push('/addresses'),
           borderRadius: BorderRadius.circular(8),
@@ -54,38 +59,48 @@ class CustomerHomeScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.location_on,
-                        color: AppTheme.brandAccent, size: 18),
+                    const Icon(
+                      Icons.near_me_outlined,
+                      color: AppTheme.primaryBlue,
+                      size: 15,
+                    ),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
                         selectedAddress != null
                             ? '${selectedAddress.label} • ${selectedAddress.city}'
-                            : 'Select Delivery Address',
+                            : 'Select Service Location',
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.brandPrimary,
-                            ),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primaryText,
+                          letterSpacing: -0.01,
+                        ),
                       ),
                     ),
-                    const Icon(Icons.keyboard_arrow_down,
-                        size: 18, color: Colors.grey),
+                    const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                      color: AppTheme.secondaryText,
+                    ),
                   ],
                 ),
                 Text(
                   selectedAddress != null
                       ? selectedAddress.addressLine1
-                      : 'Tap to add or choose your address',
+                      : 'Connaught Place, New Delhi',
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
+                  style: const TextStyle(
+                    color: AppTheme.secondaryText,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
               ],
             ),
@@ -93,12 +108,24 @@ class CustomerHomeScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.receipt_long_outlined),
+            icon: const Icon(Icons.receipt_long_outlined, size: 22),
             tooltip: 'My Bookings',
             onPressed: () => context.push('/bookings'),
           ),
           IconButton(
-            icon: const Icon(Icons.account_circle_outlined, size: 26),
+            icon: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: authState.isAuthenticated ? AppTheme.primaryBlue : Colors.grey.shade200,
+              ),
+              child: Icon(
+                Icons.person_outline,
+                size: 18,
+                color: authState.isAuthenticated ? Colors.white : AppTheme.secondaryText,
+              ),
+            ),
             tooltip: 'Profile',
             onPressed: () {
               if (authState.isAuthenticated) {
@@ -108,7 +135,45 @@ class CustomerHomeScreen extends ConsumerWidget {
               }
             },
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 6),
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 0,
+        onTap: (index) {
+          if (index == 0) return;
+          if (index == 1) context.push('/search');
+          if (index == 2) context.push('/bookings');
+          if (index == 3) context.push('/support');
+          if (index == 4) {
+            if (authState.isAuthenticated) {
+              context.push('/profile');
+            } else {
+              context.push('/login');
+            }
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_filled),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: 'Search',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_month_outlined),
+            label: 'Bookings',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.headset_mic_outlined),
+            label: 'Support',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Profile',
+          ),
         ],
       ),
       body: RefreshIndicator(
@@ -119,55 +184,49 @@ class CustomerHomeScreen extends ConsumerWidget {
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Primary Customer Hero Banner: "What do you need done?"
+                // 1. HERO SEARCH BANNER
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
+                    color: AppTheme.deepInk,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
                       BoxShadow(
-                        color: const Color(0xFF0F172A).withOpacity(0.15),
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
+                        color: Color.fromRGBO(16, 24, 40, 0.08),
+                        blurRadius: 16,
+                        offset: Offset(0, 4),
                       ),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Verified Tag
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                             decoration: BoxDecoration(
-                              color: AppTheme.brandAccent.withOpacity(0.2),
+                              color: Colors.white.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.verified,
-                                    color: AppTheme.brandAccent, size: 14),
-                                SizedBox(width: 4),
+                                Icon(Icons.verified, color: AppTheme.primaryBlue, size: 14),
+                                SizedBox(width: 5),
                                 Text(
-                                  'VERIFIED LOCAL EXPERTS',
+                                  'VERIFIED HOME PROFESSIONALS',
                                   style: TextStyle(
-                                    color: AppTheme.brandAccent,
+                                    color: Colors.white,
                                     fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.5,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.4,
                                   ),
                                 ),
                               ],
@@ -177,45 +236,47 @@ class CustomerHomeScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'What do you\nneed done?',
+                        'What do you\nneed done today?',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 28,
+                          fontSize: 24,
                           fontWeight: FontWeight.w800,
-                          height: 1.15,
-                          letterSpacing: -0.5,
+                          height: 1.2,
+                          letterSpacing: -0.02,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Book trusted home service professionals in minutes with upfront pricing and zero hidden fees.',
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Upfront pricing, certified technicians & 6-digit OTP security.',
                         style: TextStyle(
-                            color: Colors.grey.shade300,
-                            fontSize: 13,
-                            height: 1.4),
+                          color: Color(0xFFD0D5DD),
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 16),
 
-                      // Interactive Search Trigger Bar -> routes to /search
+                      // Interactive Search Field -> /search
                       InkWell(
                         onTap: () => context.push('/search'),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Row(
+                          child: const Row(
                             children: [
-                              const Icon(Icons.search,
-                                  color: Colors.grey, size: 22),
-                              const SizedBox(width: 10),
+                              Icon(Icons.search, color: AppTheme.primaryBlue, size: 20),
+                              SizedBox(width: 10),
                               Text(
-                                'Search plumbing, cleaning, AC service...',
+                                'Search plumbing, AC repair, cleaning...',
                                 style: TextStyle(
-                                    color: Colors.grey.shade500, fontSize: 14),
+                                  color: AppTheme.secondaryText,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                ),
                               ),
                             ],
                           ),
@@ -225,55 +286,101 @@ class CustomerHomeScreen extends ConsumerWidget {
                   ),
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 14),
 
-                // Categories Header
+                // 2. EMERGENCY RAPID REPAIR SHORTCUT
+                InkWell(
+                  onTap: () => context.push('/search'),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.bolt, color: AppTheme.warningAmber, size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '⚡ 30-Min Rapid Response for pipe bursts & power trips',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF92400E),
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFFB45309)),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
+                // 3. EXPLORE CATEGORIES HEADER
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
+                    const Text(
                       'Explore Services',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.brandPrimary,
-                          ),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primaryText,
+                        letterSpacing: -0.02,
+                      ),
                     ),
                     TextButton(
                       onPressed: () => context.push('/search'),
-                      child: const Text('All Services'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.primaryBlue,
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: const Row(
+                        children: [
+                          Text(
+                            'View All',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                          Icon(Icons.chevron_right, size: 16),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
 
                 // Authoritative Category Grid from Backend
                 categoriesAsync.when(
                   loading: () => const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 32.0),
+                    padding: EdgeInsets.symmetric(vertical: 36.0),
                     child: Center(
                       child: CircularProgressIndicator(
-                        color: AppTheme.brandAccent,
-                        strokeWidth: 3,
+                        color: AppTheme.primaryBlue,
+                        strokeWidth: 2.5,
                       ),
                     ),
                   ),
                   error: (err, _) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
                     child: ErrorView(
-                      message:
-                          'Unable to load service categories. Please try again.',
+                      message: 'Unable to load service categories. Tap below to retry.',
                       onRetry: () => ref.refresh(categoriesFutureProvider),
                     ),
                   ),
                   data: (categories) {
                     if (categories.isEmpty) {
                       return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16.0),
+                        padding: EdgeInsets.symmetric(vertical: 20.0),
                         child: EmptyStateView(
                           icon: Icons.category_outlined,
                           title: 'No Categories Available',
-                          message:
-                              'Service catalog is being updated. Please check back shortly.',
+                          message: 'Service catalog is being updated. Please check back shortly.',
                         ),
                       );
                     }
@@ -282,11 +389,10 @@ class CustomerHomeScreen extends ConsumerWidget {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: categories.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 4,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 10,
                         childAspectRatio: 0.82,
                       ),
                       itemBuilder: (context, index) {
@@ -296,38 +402,43 @@ class CustomerHomeScreen extends ConsumerWidget {
 
                         return InkWell(
                           onTap: () => context.push('/category/${cat.id}'),
-                          borderRadius: BorderRadius.circular(14),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: color.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border:
-                                      Border.all(color: color.withOpacity(0.2)),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppTheme.subtleBorder),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: color.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(icon, color: color, size: 24),
                                 ),
-                                child: Icon(
-                                  icon,
-                                  color: color,
-                                  size: 28,
+                                const SizedBox(height: 6),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                  child: Text(
+                                    cat.name,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.primaryText,
+                                      height: 1.2,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                cat.name,
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.brandPrimary,
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -337,58 +448,109 @@ class CustomerHomeScreen extends ConsumerWidget {
 
                 const SizedBox(height: 24),
 
-                // Trust & Safety Highlights
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                // 4. POPULAR PACKAGES
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Popular Near You',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primaryText,
+                        letterSpacing: -0.02,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => context.push('/search'),
+                      child: const Text('See All', style: TextStyle(color: AppTheme.primaryBlue, fontSize: 13)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Curated Service Cards
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
                     children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.shield_outlined,
-                              color: AppTheme.brandPrimary, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'The LocalMan Promise',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.brandPrimary,
-                            ),
-                          ),
-                        ],
+                      _PopularServiceCard(
+                        title: 'AC Deep Jet Wash',
+                        category: 'AC Care',
+                        price: '₹499',
+                        rating: '4.8 ★',
+                        onTap: () => context.push('/search'),
                       ),
-                      const SizedBox(height: 12),
-                      const _PromiseItem(
-                        icon: Icons.badge_outlined,
-                        title: 'Police & Aadhaar-Verified Pros',
-                        desc:
-                            'Every service provider is strictly background-verified.',
+                      const SizedBox(width: 12),
+                      _PopularServiceCard(
+                        title: 'Master Electrician',
+                        category: 'Electrical',
+                        price: '₹149/hr',
+                        rating: '4.9 ★',
+                        onTap: () => context.push('/search'),
                       ),
-                      const Divider(height: 16),
-                      const _PromiseItem(
-                        icon: Icons.currency_rupee,
-                        title: 'Transparent Pricing Guarantee',
-                        desc:
-                            'No sudden surges. Material approval requires your direct authorization.',
-                      ),
-                      const Divider(height: 16),
-                      const _PromiseItem(
-                        icon: Icons.lock_outline,
-                        title: 'Secure OTP-Guarded Job Start',
-                        desc:
-                            'Job begins only when you share the unique 6-digit start code with the pro.',
+                      const SizedBox(width: 12),
+                      _PopularServiceCard(
+                        title: 'Leak Repair & Pipe',
+                        category: 'Plumbing',
+                        price: '₹199 onwards',
+                        rating: '4.7 ★',
+                        onTap: () => context.push('/search'),
                       ),
                     ],
                   ),
                 ),
 
                 const SizedBox(height: 24),
+
+                // 5. LOCALMAN SAFETY GUARANTEE
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.subtleBorder),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.shield_outlined, color: AppTheme.primaryBlue, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'The LocalMan Trust Guarantee',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primaryText,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      const _TrustItem(
+                        icon: Icons.verified_user_outlined,
+                        title: 'Police & Aadhaar-Verified Pros',
+                        desc: 'Every service partner undergoes 3-step KYC verification.',
+                      ),
+                      Divider(height: 18, color: Colors.grey.shade100),
+                      const _TrustItem(
+                        icon: Icons.currency_rupee_outlined,
+                        title: 'Transparent Upfront Pricing',
+                        desc: 'Standardized rate cards. No surprise surge charges.',
+                      ),
+                      Divider(height: 18, color: Colors.grey.shade100),
+                      const _TrustItem(
+                        icon: Icons.pin_outlined,
+                        title: 'Secure OTP Handover',
+                        desc: 'Job commences only after you give the 6-digit start code.',
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 32),
               ],
             ),
           ),
@@ -398,12 +560,98 @@ class CustomerHomeScreen extends ConsumerWidget {
   }
 }
 
-class _PromiseItem extends StatelessWidget {
+class _PopularServiceCard extends StatelessWidget {
+  final String title;
+  final String category;
+  final String price;
+  final String rating;
+  final VoidCallback onTap;
+
+  const _PopularServiceCard({
+    required this.title,
+    required this.category,
+    required this.price,
+    required this.rating,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 170,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.subtleBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    category,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                ),
+                Text(
+                  rating,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFD97706),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.primaryText,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              price,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.successGreen,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TrustItem extends StatelessWidget {
   final IconData icon;
   final String title;
   final String desc;
 
-  const _PromiseItem({
+  const _TrustItem({
     required this.icon,
     required this.title,
     required this.desc,
@@ -414,7 +662,7 @@ class _PromiseItem extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.grey.shade700),
+        Icon(icon, size: 18, color: AppTheme.primaryBlue),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -422,14 +670,20 @@ class _PromiseItem extends StatelessWidget {
             children: [
               Text(
                 title,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: AppTheme.primaryText,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
                 desc,
-                style: TextStyle(
-                    color: Colors.grey.shade600, fontSize: 12, height: 1.3),
+                style: const TextStyle(
+                  color: AppTheme.secondaryText,
+                  fontSize: 11,
+                  height: 1.3,
+                ),
               ),
             ],
           ),

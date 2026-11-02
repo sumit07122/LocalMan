@@ -150,3 +150,4 @@ Added job `build-staging-apks` to `.github/workflows/ci.yml`:
 4. **Download Staging APKs**:
    - On GitHub, go to `Actions` -> `LocalMan CI Pipeline` on `develop`.
    - Download `localman-staging-apks-b<run_number>` to install Customer and Provider apps on test Android devices.
+

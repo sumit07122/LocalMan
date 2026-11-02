@@ -26,7 +26,8 @@ class BookingMaterial {
       itemName: json['itemName'] as String? ?? '',
       quantity: json['quantity'] as int? ?? 1,
       unitPricePaisa: json['unitPricePaisa'] as int? ?? 0,
-      totalPricePaisa: json['totalPricePaisa'] as int? ?? 0,
+      totalPricePaisa: (json['totalPricePaisa'] as int?) ??
+          ((json['unitPricePaisa'] as int? ?? 0) * (json['quantity'] as int? ?? 1)),
       isCustomerApproved: json['isCustomerApproved'] as bool? ?? false,
     );
   }
@@ -177,7 +178,6 @@ class Booking {
     'baseAmountPaisa': baseAmountPaisa,
     'totalAmountPaisa': totalAmountPaisa,
     'platformFeePaisa': platformFeePaisa,
-    'startOtp': startOtp,
     'scheduledTimeSlot': scheduledTimeSlot,
     'scheduledDate': scheduledDate?.toIso8601String(),
     'serviceName': serviceName,
