@@ -19,15 +19,19 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
   fastify.get('/metrics', controller.getMetrics);
   fastify.get('/kyc/pending', controller.getPendingKycDocuments);
-  fastify.post('/kyc/review', controller.reviewKycDocument);
+  fastify.post('/kyc/review', { preHandler: requireRoles(['ADMIN', 'KYC_VERIFIER']) }, controller.reviewKycDocument);
   fastify.get('/audit-logs', controller.getAuditLogs);
 
-  // Phase 2E: Financial Oversight & Adjustments
+  // Phase 2E: Financial Oversight & Adjustments (Strictly ADMIN & FINANCE_MANAGER)
   fastify.get('/financial/wallets/:providerId', controller.getProviderWallet);
   fastify.get('/financial/ledger', controller.getFinancialLedger);
   fastify.get('/financial/payouts', controller.getPayouts);
-  fastify.post('/financial/payouts/:id/status', controller.updatePayoutStatus);
-  fastify.post('/financial/adjustments', controller.adminManualAdjustment);
+  fastify.post<{ Params: { id: string } }>(
+    '/financial/payouts/:id/status',
+    { preHandler: requireRoles(['ADMIN', 'FINANCE_MANAGER']) },
+    controller.updatePayoutStatus
+  );
+  fastify.post('/financial/adjustments', { preHandler: requireRoles(['ADMIN', 'FINANCE_MANAGER']) }, controller.adminManualAdjustment);
 
   // Phase 2F: Stale Offer Sweep Trigger
   fastify.post('/dispatch/expire-stale', controller.expireStaleOffers);

@@ -27,9 +27,10 @@ jobs:
       postgres:
         image: postgis/postgis:16-3.4
         env:
-          POSTGRES_USER: localman_user
-          POSTGRES_PASSWORD: localman_ci_password_2026
-          POSTGRES_DB: localman_db
+          POSTGRES_USER: localman_ci_user
+          # SECURITY: Ephemeral test-only database password for CI container. NEVER reuse in staging/prod.
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'ci-test-only-ephemeral-localman-db-password-2026' }}
+          POSTGRES_DB: localman_ci_test_db
         ports:
           - 5432:5432
         options: >-
@@ -72,7 +73,7 @@ jobs:
 
       - name: Apply Database Migrations (PostgreSQL + PostGIS)
         env:
-          DATABASE_URL: postgresql://localman_user:localman_ci_password_2026@localhost:5432/localman_db?schema=public
+          DATABASE_URL: postgresql://localman_ci_user:${{ secrets.CI_POSTGRES_PASSWORD || 'ci-test-only-ephemeral-localman-db-password-2026' }}@localhost:5432/localman_ci_test_db?schema=public
         run: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
 
       - name: Build Backend API
@@ -81,9 +82,10 @@ jobs:
       - name: Run Backend Test Suites
         env:
           NODE_ENV: test
-          DATABASE_URL: postgresql://localman_user:localman_ci_password_2026@localhost:5432/localman_db?schema=public
-          JWT_SECRET: super_secret_localman_jwt_signing_key_replace_in_prod_2026_xyz
-          BOOKING_OTP_PEPPER: localman_secure_booking_otp_pepper_secret_2026
+          DATABASE_URL: postgresql://localman_ci_user:${{ secrets.CI_POSTGRES_PASSWORD || 'ci-test-only-ephemeral-localman-db-password-2026' }}@localhost:5432/localman_ci_test_db?schema=public
+          # SECURITY: Ephemeral mock secrets for CI unit and integration tests only. NEVER use in staging/production.
+          JWT_SECRET: ${{ secrets.CI_JWT_SECRET || 'ci-test-only-mock-jwt-signing-secret-key-never-reuse-in-prod-xyz' }}
+          BOOKING_OTP_PEPPER: ${{ secrets.CI_OTP_PEPPER || 'ci-test-only-mock-booking-otp-pepper-secret-never-reuse-in-prod' }}
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           STORAGE_PROVIDER: mock

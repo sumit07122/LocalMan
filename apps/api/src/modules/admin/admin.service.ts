@@ -64,7 +64,7 @@ export class AdminService {
    * Retrieves pending KYC documents for review
    */
   async getPendingKycDocuments() {
-    return prisma.providerDocument.findMany({
+    const docs = await prisma.providerDocument.findMany({
       where: { status: 'PENDING' },
       include: {
         provider: {
@@ -75,6 +75,12 @@ export class AdminService {
       },
       orderBy: { createdAt: 'asc' },
     });
+
+    // DPDPA & Aadhaar Act Compliance: Return masked document number for dashboard operations
+    return docs.map((doc) => ({
+      ...doc,
+      documentNumber: doc.maskedDocumentNumber || doc.documentNumber,
+    }));
   }
 
   /**

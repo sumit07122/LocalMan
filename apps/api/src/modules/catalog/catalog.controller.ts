@@ -6,7 +6,7 @@ import {
   CreateServiceSchema,
 } from '@localman/contracts';
 import { sendSuccess } from '../../common/utils/response.js';
-import { NotFoundError } from '../../common/errors/app-error.js';
+import { NotFoundError, ForbiddenError } from '../../common/errors/app-error.js';
 
 export class CatalogController {
   private catalogService = new CatalogService();
@@ -58,7 +58,23 @@ export class CatalogController {
 
   createService = async (request: FastifyRequest, reply: FastifyReply) => {
     const validated = CreateServiceSchema.parse(request.body);
-    const result = await this.catalogService.createService(validated);
+    const user = request.user;
+
+    // Platform Fee Governance: Canonical rate is 15.0%.
+    // Only Super Admin can specify a non-canonical commission rate upon service creation.
+    if (
+      validated.platformCommissionPercent !== undefined &&
+      validated.platformCommissionPercent !== 15.0
+    ) {
+      const isAdmin = user?.roles?.includes('ADMIN');
+      if (!isAdmin) {
+        throw new ForbiddenError(
+          'Non-standard platform commission can only be configured by Super Admin'
+        );
+      }
+    }
+
+    const result = await this.catalogService.createService(validated, user?.id);
     return sendSuccess(reply, result, 201);
   };
 }

@@ -280,8 +280,9 @@ export class CatalogService {
   /**
    * Admin: Creates a new service in the catalog
    */
-  async createService(input: CreateServiceInput) {
-    return prisma.service.create({
+  async createService(input: CreateServiceInput, actorUserId?: string) {
+    const commissionPercent = input.platformCommissionPercent ?? 15.0;
+    const service = await prisma.service.create({
       data: {
         categoryId: input.categoryId,
         name: input.name,
@@ -293,8 +294,28 @@ export class CatalogService {
         inspectionFeePaisa: input.inspectionFeePaisa || null,
         estimatedDurationMinutes: input.estimatedDurationMinutes,
         isMaterialAllowed: input.isMaterialAllowed,
-        platformCommissionPercent: input.platformCommissionPercent,
+        platformCommissionPercent: commissionPercent,
       },
     });
+
+    // Audited administrative logging if non-canonical commission rate is set
+    if (commissionPercent !== 15.0) {
+      await prisma.auditLog.create({
+        data: {
+          userId: actorUserId || 'SYSTEM',
+          action: 'SERVICE_COMMISSION_OVERRIDE_CREATED',
+          resourceType: 'service',
+          resourceId: service.id,
+          newState: {
+            serviceId: service.id,
+            serviceName: service.name,
+            platformCommissionPercent: commissionPercent,
+            canonicalDefaultPercent: 15.0,
+          },
+        },
+      });
+    }
+
+    return service;
   }
 }

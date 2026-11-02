@@ -138,7 +138,7 @@ async function main() {
           inspectionFeePaisa: 19900,
           estimatedDurationMinutes: 60,
           isMaterialAllowed: true,
-          platformCommissionPercent: 12.0,
+          platformCommissionPercent: 15.0,
         },
       ],
     },
@@ -157,7 +157,7 @@ async function main() {
           basePricePaisa: 49900, // ₹499
           estimatedDurationMinutes: 60,
           isMaterialAllowed: true,
-          platformCommissionPercent: 18.0,
+          platformCommissionPercent: 15.0,
         },
         {
           name: 'Refrigerator Not Cooling / Diagnostic',
@@ -228,7 +228,7 @@ async function main() {
           basePricePaisa: 44900, // ₹449
           estimatedDurationMinutes: 75,
           isMaterialAllowed: false,
-          platformCommissionPercent: 20.0,
+          platformCommissionPercent: 15.0,
         },
         {
           name: 'Full Home Deep Cleaning (2 BHK)',
@@ -238,7 +238,7 @@ async function main() {
           basePricePaisa: 299900, // ₹2,999
           estimatedDurationMinutes: 240,
           isMaterialAllowed: false,
-          platformCommissionPercent: 20.0,
+          platformCommissionPercent: 15.0,
         },
       ],
     },
@@ -257,7 +257,7 @@ async function main() {
           basePricePaisa: 89900, // ₹899
           estimatedDurationMinutes: 45,
           isMaterialAllowed: false,
-          platformCommissionPercent: 18.0,
+          platformCommissionPercent: 15.0,
         },
         {
           name: 'Termite Inspection & Treatment',

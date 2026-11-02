@@ -67,22 +67,23 @@ CI test env uses mock providers: `STORAGE_PROVIDER=mock SMS_GATEWAY_PROVIDER=moc
 
 ## 7. Known issues / risks (prioritized)
 1. **P0 — RESOLVED: Customer Flutter analyzer errors in CI.** Fixed nullable access and verified clean `flutter analyze --no-fatal-infos` and `flutter test` (107/107 passed) on Customer App and Provider App (31/31 passed).
-2. **P1 — RESOLVED: Consolidated fee math.** Consolidated inline commission arithmetic in `bookings/booking.service.ts` and `quotes/quote.service.ts` into canonical methods `FinancialService.calculatePlatformFee` and `FinancialService.deriveBookingPricing`. Backed by 7 unit tests in `contracts.test.ts`.
-3. **P1 — Commission/TDS overridable per service/provider.**
-   - `platformCommissionPercent` (Service model) is restricted to `ADMIN` and `CITY_MANAGER` roles upon catalog creation.
-   - `commissionRateOverride` (Provider model) exists at the Prisma schema level, is read during settlement and quote acceptance, and is not exposed to any public or provider-facing endpoints.
-4. **P2 — CI hygiene:**
-   - Actions on Node 20 deprecation warning.
-   - `ubuntu-latest` runner migration.
-   - Separate test-only credentials from staging/prod secrets.
-   - Address `deprecated_member_use` Flutter linter notices in `analysis_options.yaml`.
+2. **P1 — RESOLVED: Consolidated fee math.** Consolidated inline commission arithmetic into canonical methods `FinancialService.calculatePlatformFee` and `FinancialService.deriveBookingPricing`. Backed by 7 unit tests in `contracts.test.ts`.
+3. **P1 — RESOLVED (Phase 4F.1): Commission & TDS Governance.**
+   - All seeded catalog services in `apps/api/prisma/seed.ts` unified to canonical 15.0% commission.
+   - `POST /api/v1/catalog/services` strictly requires `ADMIN` role for non-15.0% commission rates (`ForbiddenError` for `CITY_MANAGER`, `PROVIDER`, `CUSTOMER`) and automatically generates `SERVICE_COMMISSION_OVERRIDE_CREATED` audit logs.
+   - Financial adjustments (`/financial/adjustments`) and payout status updates strictly restricted to `ADMIN` and `FINANCE_MANAGER`.
+   - Backed by 11 unit/integration tests in `apps/api/test/security-financial-invariants.test.ts`.
+4. **P2 — RESOLVED (Phase 4F.1): CI & Secrets Hygiene:**
+   - Isolated ephemeral CI test secrets with `ci-test-only-ephemeral-` prefix and prominent warning headers prohibiting reuse.
+   - Hardened `android-distribution.yml`: removed unverified hardcoded domain fallbacks, requiring verified repository variables or secrets.
+   - Converted `deprecated_member_use: ignore` &rarr; `deprecated_member_use: info` in both mobile apps.
 5. **P2 — Default branch vs working branch:**
    - GitHub default branch is `master`, while feature work and CI staging APK builds target `develop`. Release promotion strategy (PR from `develop` -> `master`) to be documented.
-6. **Production readiness gaps to audit next:**
-   - Real payment gateway integration (Razorpay production keys, webhook signature verification).
-   - Real SMS/OTP gateway (Twilio/MSG91 integration replacing mock).
-   - Storage/KYC encryption at rest and in transit.
-   - Ingress rate limiting, production observability, automated database backups, staging environment deployment.
+6. **Production readiness gaps to configure next (requires cloud accounts/keys):**
+   - Live Razorpay merchant keys and webhook secret.
+   - Live SMS/OTP gateway (MSG91/Twilio DLT approved templates).
+   - Live AWS S3 / Cloudflare R2 bucket with server-side KMS encryption.
+   - Ingress rate limiting with Redis cluster, automated daily PostgreSQL snapshots.
 
 ## 8. Status log
 - 2026-11-02: Initial audit and baseline established.
@@ -97,3 +98,12 @@ CI test env uses mock providers: `STORAGE_PROVIDER=mock SMS_GATEWAY_PROVIDER=moc
   - Audited Admin Catalog take-rate slider: renamed to "Service Catalog & Take-Rate Yield Simulator", added explicit 15% platform commission / 1% TDS server authority notes.
   - Audited Android release configurations, package IDs, SDK levels, and safe QA signing workflows via GitHub Secrets.
   - Generated `docs/PHASE_4F_ENGINEERING_BASELINE_REPORT.md`.
+- 2026-11-03: Phase 4F.1 Security Audit Remediation complete:
+  - Synchronized all 15 seeded catalog services to canonical 15.0% commission.
+  - Enforced `ADMIN`-only restriction on non-standard commission rates with `AuditLog` recording.
+  - Hardened RBAC on manual financial adjustments and payouts (`ADMIN` & `FINANCE_MANAGER` only).
+  - Implemented automated KYC document masking in `AdminService.getPendingKycDocuments()`.
+  - Isolated CI test mock secrets with `ci-test-only-ephemeral-` prefix and warning headers.
+  - Converted Flutter `deprecated_member_use` from `ignore` to `info`.
+  - Added 11 automated security tests in `security-financial-invariants.test.ts`.
+  - Generated `docs/PHASE_4F_1_SECURITY_REMEDIATION_REPORT.md`.
