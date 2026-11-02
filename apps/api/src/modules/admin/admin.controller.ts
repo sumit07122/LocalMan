@@ -21,6 +21,14 @@ export class AdminController {
     return sendSuccess(reply, metrics, 200);
   };
 
+  getPilotMetrics = async (
+    request: FastifyRequest<{ Querystring: { startDate?: string; endDate?: string } }>,
+    reply: FastifyReply
+  ) => {
+    const metrics = await this.adminService.getPilotMetrics(request.query);
+    return sendSuccess(reply, metrics, 200);
+  };
+
   getPendingKycDocuments = async (_request: FastifyRequest, reply: FastifyReply) => {
     const docs = await this.adminService.getPendingKycDocuments();
     return sendSuccess(reply, docs, 200);

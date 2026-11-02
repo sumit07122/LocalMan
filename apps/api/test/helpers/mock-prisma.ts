@@ -430,7 +430,10 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
         for (const b of store.bookings.values()) {
           if (where?.providerId && b.providerId !== where.providerId) continue;
           if (where?.customerId && b.customerId !== where.customerId) continue;
-          if (where?.currentStatus && b.currentStatus !== where.currentStatus) continue;
+          if (where?.currentStatus) {
+            if (typeof where.currentStatus === 'string' && b.currentStatus !== where.currentStatus) continue;
+            if (where.currentStatus.in && !where.currentStatus.in.includes(b.currentStatus)) continue;
+          }
           list.push(b);
         }
         if (orderBy?.createdAt === 'desc') {
@@ -448,7 +451,10 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
         for (const b of store.bookings.values()) {
           if (where?.providerId && b.providerId !== where.providerId) continue;
           if (where?.customerId && b.customerId !== where.customerId) continue;
-          if (where?.currentStatus && b.currentStatus !== where.currentStatus) continue;
+          if (where?.currentStatus) {
+            if (typeof where.currentStatus === 'string' && b.currentStatus !== where.currentStatus) continue;
+            if (where.currentStatus.in && !where.currentStatus.in.includes(b.currentStatus)) continue;
+          }
           count++;
         }
         return count;
@@ -900,6 +906,20 @@ export function createMockPrisma(initialStore?: Partial<MockDataStore>) {
         const tx = { id: `ptx_${Date.now()}_${Math.random()}`, createdAt: new Date(), ...data };
         store.paymentTransactions.push(tx);
         return tx;
+      },
+      count: async ({ where }: any = {}) => {
+        let list = store.paymentTransactions;
+        if (where?.status) {
+          list = list.filter((tx: any) => tx.status === where.status);
+        }
+        return list.length;
+      },
+      findMany: async ({ where }: any = {}) => {
+        let list = store.paymentTransactions;
+        if (where?.status) {
+          list = list.filter((tx: any) => tx.status === where.status);
+        }
+        return list;
       },
     },
 

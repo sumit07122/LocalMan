@@ -840,7 +840,7 @@ export function App() {
               <div className="stat-value">₹{metrics.totalRevenueInr}</div>
               <div className="stat-footer">
                 <ArrowUpRight size={14} color="#12A879" />
-                <span style={{ color: '#12A879', fontWeight: 600 }}>18.4% Take-Rate</span>
+                <span style={{ color: '#12A879', fontWeight: 600 }}>15.0% Platform Fee</span>
               </div>
             </div>
           </div>

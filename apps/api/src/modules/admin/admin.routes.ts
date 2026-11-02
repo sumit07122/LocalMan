@@ -18,6 +18,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
   );
 
   fastify.get('/metrics', controller.getMetrics);
+  fastify.get('/pilot-metrics', controller.getPilotMetrics);
   fastify.get('/kyc/pending', controller.getPendingKycDocuments);
   fastify.post('/kyc/review', { preHandler: requireRoles(['ADMIN', 'KYC_VERIFIER']) }, controller.reviewKycDocument);
   fastify.get('/audit-logs', controller.getAuditLogs);
