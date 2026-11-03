@@ -156,8 +156,10 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
       };
     }
 
+    const seed = options.idempotencyKey || `${options.gatewayPaymentId}_${options.amountPaisa}`;
+    const hash = crypto.createHash('sha256').update(seed).digest('hex').substring(0, 16);
     return {
-      gatewayRefundId: `rfnd_rzp_${Date.now()}`,
+      gatewayRefundId: `rfnd_rzp_${hash}`,
     };
   }
 }

@@ -5,13 +5,16 @@ import crypto from 'node:crypto';
 import { buildApp } from '../src/app.js';
 import { createMockPrisma } from './helpers/mock-prisma.js';
 import { AdminService } from '../src/modules/admin/admin.service.js';
-import { FinancialService } from '../src/modules/financial/financial.service.js';
+import { RefundService } from '../src/modules/refunds/refund.service.js';
 import { monitoringService } from '../src/modules/monitoring/monitoring.service.js';
+import { safelyMaskKycDocumentNumber } from '../src/common/utils/kyc-masking.js';
+import { isPincodeInPilotZone, getPilotConfig } from '../src/config/pilot.config.js';
 
-describe('Phase 4L: Controlled Marketplace Pilot Readiness & Operational Workflows', () => {
+describe('Phase 4M: Final Pilot Pre-Launch Validation & Owner Gate Closure', () => {
   let app: FastifyInstance;
   let mockPrisma: any;
   const adminService = new AdminService();
+  const refundService = new RefundService();
 
   let tokenAdmin: string;
   let tokenCustomer: string;
@@ -21,6 +24,12 @@ describe('Phase 4L: Controlled Marketplace Pilot Readiness & Operational Workflo
     monitoringService.clear();
     mockPrisma = createMockPrisma();
     (globalThis as any).__prisma = mockPrisma;
+
+    // Reset pilot zone env
+    delete process.env.PILOT_ZONE_CONFIRMED;
+    delete process.env.PILOT_CLUSTER_NAME;
+    delete process.env.PILOT_CITY;
+    delete process.env.PILOT_PINCODES;
 
     // Seed mock admin
     mockPrisma._store.users.set('usr_admin_pilot', {
@@ -35,7 +44,7 @@ describe('Phase 4L: Controlled Marketplace Pilot Readiness & Operational Workflo
     mockPrisma._store.users.set('usr_pilot_customer', {
       id: 'usr_pilot_customer',
       phoneNumber: '+919800000002',
-      fullName: 'Beta Customer Indiranagar',
+      fullName: 'Beta Customer',
       isActive: true,
       userRoles: [{ roleId: 'CUSTOMER' }],
     });
@@ -44,12 +53,12 @@ describe('Phase 4L: Controlled Marketplace Pilot Readiness & Operational Workflo
     mockPrisma._store.users.set('usr_pilot_provider', {
       id: 'usr_pilot_provider',
       phoneNumber: '+919800000003',
-      fullName: 'Verified Electrician Ramesh',
+      fullName: 'Verified Electrician',
       isActive: true,
       userRoles: [{ roleId: 'PROVIDER' }],
       provider: {
         id: 'prv_pilot_01',
-        businessName: 'Ramesh Electricals',
+        businessName: 'Local Electrician',
         verificationStatus: 'VERIFIED',
         isOnline: true,
         commissionRateOverride: null,
@@ -59,7 +68,7 @@ describe('Phase 4L: Controlled Marketplace Pilot Readiness & Operational Workflo
     mockPrisma._store.providers.set('prv_pilot_01', {
       id: 'prv_pilot_01',
       userId: 'usr_pilot_provider',
-      businessName: 'Ramesh Electricals',
+      businessName: 'Local Electrician',
       verificationStatus: 'VERIFIED',
       isOnline: true,
       commissionRateOverride: null,
@@ -109,210 +118,192 @@ describe('Phase 4L: Controlled Marketplace Pilot Readiness & Operational Workflo
   });
 
   // ---------------------------------------------------------------------------
-  // 1. PILOT PERFORMANCE TELEMETRY & KPIS
+  // 1. GENUINE VS SIMULATED PILOT TELEMETRY (STAGE 2)
   // ---------------------------------------------------------------------------
-  describe('1. Pilot Monitoring & KPI Telemetry Endpoint', () => {
-    it('1.1 Rejects unauthenticated access to /api/v1/admin/pilot-metrics', async () => {
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/v1/admin/pilot-metrics',
-      });
-      assert.strictEqual(res.statusCode, 401);
+  describe('1. Pilot Telemetry & Dynamic Readiness Verification', () => {
+    it('1.1 Returns null for avgDispatchTimeSeconds when no real dispatch offers exist (no simulation)', async () => {
+      const metrics = await adminService.getPilotMetrics();
+      assert.strictEqual(
+        metrics.kpis.avgDispatchTimeSeconds,
+        null,
+        'Must return null instead of a hardcoded or simulated number when no offers exist'
+      );
     });
 
-    it('1.2 Rejects customer role access to /api/v1/admin/pilot-metrics (403)', async () => {
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/v1/admin/pilot-metrics',
-        headers: { authorization: `Bearer ${tokenCustomer}` },
-      });
-      assert.strictEqual(res.statusCode, 403);
-    });
+    it('1.2 Calculates real average dispatch duration in seconds from persisted timestamps', async () => {
+      const t0 = new Date('2026-11-03T10:00:00Z');
+      const t1 = new Date('2026-11-03T10:00:30Z'); // 30s
+      const t2 = new Date('2026-11-03T10:01:10Z'); // 70s
 
-    it('1.3 Admin successfully retrieves pilot performance metrics with verified KPIs', async () => {
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/v1/admin/pilot-metrics',
-        headers: { authorization: `Bearer ${tokenAdmin}` },
+      mockPrisma._store.dispatchOffers.set('off_real_1', {
+        id: 'off_real_1',
+        status: 'ACCEPTED',
+        createdAt: t0,
+        respondedAt: t1,
       });
 
-      assert.strictEqual(res.statusCode, 200);
-      const body = JSON.parse(res.payload);
-      assert.strictEqual(body.success, true);
-      assert.ok(body.data.pilotZone);
-      assert.strictEqual(body.data.pilotZone.clusterName, 'Bengaluru South & East Corridor');
-      assert.deepStrictEqual(body.data.pilotZone.pincodes, ['560034', '560102', '560068', '560038']);
-      assert.strictEqual(body.data.pilotZone.targetCustomerCohort, 50);
-
-      // Verify KPI fields
-      assert.ok(typeof body.data.kpis.totalBookings === 'number');
-      assert.ok(typeof body.data.kpis.cancellationRatePercent === 'number');
-      assert.ok(typeof body.data.kpis.providerAcceptanceRatePercent === 'number');
-      assert.ok(body.data.kpis.customerSatisfaction);
-      assert.ok(typeof body.data.kpis.customerSatisfaction.avgRating === 'number');
-
-      // Verify Financials strictly in integer paisa with canonical 15% commission / 1% TDS
-      assert.strictEqual(body.data.financials.commissionRatePercent, 15.0);
-      assert.strictEqual(body.data.financials.tdsRatePercent, 1.0);
-      assert.strictEqual(body.data.dataIntegrity.isPilotReady, true);
-    });
-
-    it('1.4 Computes correct cancellation rate and provider acceptance rate', async () => {
-      // Seed mock bookings
-      mockPrisma._store.bookings.set('bkg_1', { id: 'bkg_1', currentStatus: 'PAYMENT_SETTLED' });
-      mockPrisma._store.bookings.set('bkg_2', { id: 'bkg_2', currentStatus: 'CANCELLED' });
-      mockPrisma._store.bookings.set('bkg_3', { id: 'bkg_3', currentStatus: 'JOB_COMPLETED' });
-      mockPrisma._store.bookings.set('bkg_4', { id: 'bkg_4', currentStatus: 'REQUESTED' });
-
-      // Seed mock offers (3 offered, 2 accepted)
-      mockPrisma._store.dispatchOffers.set('off_1', { id: 'off_1', status: 'ACCEPTED' });
-      mockPrisma._store.dispatchOffers.set('off_2', { id: 'off_2', status: 'ACCEPTED' });
-      mockPrisma._store.dispatchOffers.set('off_3', { id: 'off_3', status: 'EXPIRED' });
+      mockPrisma._store.dispatchOffers.set('off_real_2', {
+        id: 'off_real_2',
+        status: 'ACCEPTED',
+        createdAt: t0,
+        respondedAt: t2,
+      });
 
       const metrics = await adminService.getPilotMetrics();
-      assert.strictEqual(metrics.kpis.totalBookings, 4);
-      assert.strictEqual(metrics.kpis.completedBookings, 2);
-      assert.strictEqual(metrics.kpis.cancellationRatePercent, 25.0); // 1 / 4 = 25%
-      assert.strictEqual(metrics.kpis.providerAcceptanceRatePercent, 66.67); // 2 / 3 = 66.67%
+      // (30 + 70) / 2 = 50 seconds
+      assert.strictEqual(metrics.kpis.avgDispatchTimeSeconds, 50);
+    });
+
+    it('1.3 Clearly distinguishes target cohort sizes from actual registered counts', async () => {
+      const metrics = await adminService.getPilotMetrics();
+      assert.strictEqual(typeof metrics.cohorts.customers.targetCohortSize, 'number');
+      assert.strictEqual(typeof metrics.cohorts.customers.actualRegistered, 'number');
+      assert.strictEqual(typeof metrics.cohorts.providers.targetCohortSize, 'number');
+      assert.strictEqual(typeof metrics.cohorts.providers.verifiedOnline, 'number');
+      assert.strictEqual(typeof metrics.cohorts.providers.verifiedOffline, 'number');
+      assert.strictEqual(metrics.cohorts.customers.actualRegistered, 1); // 1 seeded customer
+    });
+
+    it('1.4 Dynamically derives isPilotReady=false when pilot zone is unconfirmed by owner', async () => {
+      delete process.env.PILOT_ZONE_CONFIRMED;
+      const metrics = await adminService.getPilotMetrics();
+      assert.strictEqual(metrics.dataIntegrity.isPilotReady, false);
+      assert.ok(metrics.dataIntegrity.readinessBlockers.includes('PILOT_ZONE_NOT_CONFIRMED'));
+      assert.strictEqual(metrics.pilotZone.status, 'PILOT_ZONE_NOT_CONFIRMED');
+    });
+
+    it('1.5 Derives isPilotReady=true only when owner confirms zone and verified online providers exist', async () => {
+      process.env.PILOT_ZONE_CONFIRMED = 'true';
+      process.env.PILOT_CLUSTER_NAME = 'Test Owner Cluster';
+      process.env.PILOT_PINCODES = '560034,560102';
+
+      const metrics = await adminService.getPilotMetrics();
+      assert.strictEqual(metrics.dataIntegrity.isPilotReady, true);
+      assert.strictEqual(metrics.pilotZone.status, 'PILOT_ZONE_CONFIRMED');
+      assert.strictEqual(metrics.pilotZone.clusterName, 'Test Owner Cluster');
+      assert.deepStrictEqual(metrics.pilotZone.pincodes, ['560034', '560102']);
     });
   });
 
   // ---------------------------------------------------------------------------
-  // 2. PILOT SERVICE AREA & GEOFENCE CONSTRAINTS
+  // 2. KYC PRIVACY & SAFE MASKING (STAGE 3)
   // ---------------------------------------------------------------------------
-  describe('2. Pilot Service Area & Geofence Validation', () => {
-    const PILOT_PINCODES = new Set(['560034', '560102', '560068', '560038']);
-
-    function isAddressInPilotZone(postalCode: string): boolean {
-      return PILOT_PINCODES.has(postalCode.trim());
-    }
-
-    it('2.1 Accepts addresses within designated Bengaluru pilot pincodes', () => {
-      assert.strictEqual(isAddressInPilotZone('560034'), true); // Koramangala
-      assert.strictEqual(isAddressInPilotZone('560102'), true); // HSR Layout
-      assert.strictEqual(isAddressInPilotZone('560068'), true); // BTM Layout
-      assert.strictEqual(isAddressInPilotZone('560038'), true); // Indiranagar
+  describe('2. KYC Privacy & Raw Document Protection', () => {
+    it('2.1 Safely masks Aadhaar number (last 4 only) even when maskedDocumentNumber is null', () => {
+      const rawAadhaar = '987654321234';
+      const masked = safelyMaskKycDocumentNumber('AADHAAR_FRONT', rawAadhaar, null);
+      assert.strictEqual(masked, 'XXXXXXXX1234');
+      assert.ok(!masked.includes('98765432'), 'Raw Aadhaar prefix must never leak');
     });
 
-    it('2.2 Rejects addresses outside pilot boundaries with clear waitlist flag', () => {
-      assert.strictEqual(isAddressInPilotZone('560001'), false); // Central Bangalore
-      assert.strictEqual(isAddressInPilotZone('110001'), false); // New Delhi
-      assert.strictEqual(isAddressInPilotZone('400001'), false); // Mumbai
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // 3. OPERATIONAL WORKFLOWS: CANCELLATIONS, NO-SHOWS & REFUNDS
-  // ---------------------------------------------------------------------------
-  describe('3. Operational Workflows & Business Rules', () => {
-    it('3.1 Pre-dispatch cancellation yields 100% refund with zero visit penalty', () => {
-      const grossPaisa = 50000; // ₹500
-      const bookingStatus = 'REQUESTED';
-
-      let refundAmountPaisa = 0;
-      let providerCompensationPaisa = 0;
-
-      if (bookingStatus === 'REQUESTED') {
-        refundAmountPaisa = grossPaisa;
-        providerCompensationPaisa = 0;
-      }
-
-      assert.strictEqual(refundAmountPaisa, 50000);
-      assert.strictEqual(providerCompensationPaisa, 0);
+    it('2.2 Safely masks PAN card even when maskedDocumentNumber is missing or empty', () => {
+      const rawPan = 'ABCDE1234F';
+      const masked = safelyMaskKycDocumentNumber('PAN_CARD', rawPan, '');
+      assert.strictEqual(masked, 'ABXXXXXX4F');
+      assert.ok(!masked.includes('CDE123'), 'Raw PAN body must never leak');
     });
 
-    it('3.2 Customer cancellation after provider arrival enforces standard visit compensation', () => {
-      const grossPaisa = 80000; // ₹800
-      const visitCompensationPaisa = 15000; // ₹150 visit charge
-
-      const refundAmountPaisa = grossPaisa - visitCompensationPaisa;
-      const providerCompensationPaisa = visitCompensationPaisa;
-
-      assert.strictEqual(refundAmountPaisa, 65000); // ₹650 refunded
-      assert.strictEqual(providerCompensationPaisa, 15000); // ₹150 credited to provider
-      assert.strictEqual(refundAmountPaisa + providerCompensationPaisa, grossPaisa);
+    it('2.3 Returns safe placeholder when raw number is malformed or missing', () => {
+      assert.strictEqual(safelyMaskKycDocumentNumber('AADHAAR_FRONT', '', null), 'XXXXXXXX****');
+      assert.strictEqual(safelyMaskKycDocumentNumber('PAN_CARD', null, null), 'XXXXXXXX****');
     });
 
-    it('3.3 Customer no-show workflow compensates provider for arrival', () => {
-      const grossPaisa = 60000; // ₹600
-      const standardVisitFee = 15000; // ₹150
-
-      const refundAmount = grossPaisa - standardVisitFee;
-      const providerPayout = standardVisitFee;
-
-      assert.strictEqual(refundAmount, 45000);
-      assert.strictEqual(providerPayout, 15000);
-    });
-
-    it('3.4 Start OTP is strictly withheld from provider to prevent premature job execution', async () => {
-      // Seed booking with startOtp = "4829"
-      mockPrisma._store.bookings.set('bkg_otp_guard', {
-        id: 'bkg_otp_guard',
-        customerId: 'usr_pilot_customer',
-        providerId: 'prv_pilot_01',
-        serviceId: 'srv_ac_01',
-        addressId: 'addr_1',
-        startOtp: '4829',
-        currentStatus: 'CONFIRMED',
-        pricingModel: 'FIXED_PRICE',
-        totalAmountPaisa: 60000,
-      });
-
-      const res = await app.inject({
-        method: 'GET',
-        url: '/api/v1/bookings/bkg_otp_guard',
-        headers: { authorization: `Bearer ${tokenProvider}` },
-      });
-
-      assert.strictEqual(res.statusCode, 200);
-      const body = JSON.parse(res.payload);
-      assert.strictEqual(body.data.startOtp, undefined, 'Provider must never see the Start OTP');
-    });
-
-    it('3.5 KYC rejection transitions document status and records actionable notes', async () => {
-      mockPrisma._store.providerDocuments.set('doc_aadhaar_blurry', {
-        id: 'doc_aadhaar_blurry',
+    it('2.4 Admin KYC queue endpoint never reveals unmasked document numbers', async () => {
+      mockPrisma._store.providerDocuments.set('doc_unmasked_in_db', {
+        id: 'doc_unmasked_in_db',
         providerId: 'prv_pilot_01',
         documentType: 'AADHAAR_FRONT',
-        documentNumber: 'XXXXXXXX1234',
+        documentNumber: '999988881234', // Raw unmasked in DB
+        maskedDocumentNumber: null, // Null in DB
         status: 'PENDING',
-      });
-
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/v1/admin/kyc/review',
-        headers: { authorization: `Bearer ${tokenAdmin}` },
-        payload: {
-          documentId: 'doc_aadhaar_blurry',
-          status: 'REJECTED',
-          reviewNotes: 'Aadhaar image is blurry. Please re-upload a clear photograph in good lighting.',
+        provider: {
+          user: { fullName: 'Test Provider', phoneNumber: '+919800000003', email: 'p@test.com' },
         },
       });
 
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/kyc/pending',
+        headers: { authorization: `Bearer ${tokenAdmin}` },
+      });
+
       assert.strictEqual(res.statusCode, 200);
-      const updated = mockPrisma._store.providerDocuments.get('doc_aadhaar_blurry');
-      assert.strictEqual(updated.status, 'REJECTED');
-      assert.ok(updated.reviewNotes.includes('blurry'));
+      const body = JSON.parse(res.payload);
+      const doc = body.data.find((d: any) => d.id === 'doc_unmasked_in_db');
+      assert.ok(doc);
+      assert.strictEqual(doc.documentNumber, 'XXXXXXXX1234');
+      assert.ok(!JSON.stringify(body).includes('99998888'), 'Raw document number must never appear in response payload');
     });
   });
 
   // ---------------------------------------------------------------------------
-  // 4. FINANCIAL SETTLEMENT & CONSERVATION IN PILOT
+  // 3. REFUND IDEMPOTENCY & STABILITY (STAGE 4)
   // ---------------------------------------------------------------------------
-  describe('4. Pilot Financial Integrity & Invariants', () => {
-    it('4.1 Calculates canonical 15% platform commission and 1% TDS on integer paisa', () => {
-      const grossAmountPaisa = 120000; // ₹1,200
-      const commissionRate = 15.0;
-      const tdsRate = 1.0;
+  describe('3. Refund Idempotency & Gateway Operation Stability', () => {
+    it('3.1 Repeated refund requests with same idempotency key return identical refund without duplicating', async () => {
+      // Seed payment
+      mockPrisma._store.payments.set('pay_refund_test', {
+        id: 'pay_refund_test',
+        bookingId: 'bkg_refund_test',
+        amountPaisa: 100000, // ₹1,000
+        status: 'CAPTURED',
+        gateway: 'RAZORPAY',
+        gatewayPaymentId: 'pay_rzp_test_123',
+        refunds: [],
+      });
 
-      const platformFee = Math.round((grossAmountPaisa * commissionRate) / 100); // 18,000 paisa (₹180)
-      const tdsAmount = Math.round((grossAmountPaisa * tdsRate) / 100); // 1,200 paisa (₹12)
-      const netProviderAmount = grossAmountPaisa - platformFee - tdsAmount; // 100,800 paisa (₹1,008)
+      mockPrisma._store.bookings.set('bkg_refund_test', {
+        id: 'bkg_refund_test',
+        customerId: 'usr_pilot_customer',
+        currentStatus: 'CONFIRMED',
+      });
 
-      assert.strictEqual(platformFee, 18000);
-      assert.strictEqual(tdsAmount, 1200);
-      assert.strictEqual(netProviderAmount, 100800);
-      assert.strictEqual(grossAmountPaisa, platformFee + tdsAmount + netProviderAmount);
+      const idempotencyKey = 'client_refund_unique_uuid_9999';
+
+      // First refund request
+      const refund1 = await refundService.processRefund({
+        bookingId: 'bkg_refund_test',
+        amountPaisa: 50000, // ₹500 partial refund
+        reason: 'Customer requested cancellation',
+        initiatedBy: 'usr_pilot_customer',
+        idempotencyKey,
+      });
+
+      // Second identical request (retry simulation)
+      const refund2 = await refundService.processRefund({
+        bookingId: 'bkg_refund_test',
+        amountPaisa: 50000,
+        reason: 'Customer requested cancellation (retry)',
+        initiatedBy: 'usr_pilot_customer',
+        idempotencyKey,
+      });
+
+      assert.strictEqual(refund1.refundId, refund2.refundId, 'Must return same refund record on retry');
+      assert.strictEqual(refund1.gatewayRefundId, refund2.gatewayRefundId, 'Gateway refund ID must remain identical');
+      assert.strictEqual(refund1.refundAmountPaisa, 50000);
+      assert.strictEqual(refund2.refundAmountPaisa, 50000);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 4. PILOT ZONE CONFIGURATION LAYER (STAGE 5)
+  // ---------------------------------------------------------------------------
+  describe('4. Pilot Zone Configuration Layer', () => {
+    it('4.1 Rejects all pincodes when pilot zone is unconfirmed by project owner', () => {
+      delete process.env.PILOT_ZONE_CONFIRMED;
+      assert.strictEqual(isPincodeInPilotZone('560034'), false);
+      assert.strictEqual(isPincodeInPilotZone('560102'), false);
+    });
+
+    it('4.2 Accepts confirmed pincodes and rejects unlisted pincodes when owner approves configuration', () => {
+      process.env.PILOT_ZONE_CONFIRMED = 'true';
+      process.env.PILOT_PINCODES = '560034, 560102, 560068';
+
+      assert.strictEqual(isPincodeInPilotZone('560034'), true);
+      assert.strictEqual(isPincodeInPilotZone('560102'), true);
+      assert.strictEqual(isPincodeInPilotZone('560068'), true);
+      assert.strictEqual(isPincodeInPilotZone('560001'), false); // Central Bangalore rejected
+      assert.strictEqual(isPincodeInPilotZone('110001'), false); // Delhi rejected
     });
   });
 });

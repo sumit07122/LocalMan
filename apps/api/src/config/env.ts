@@ -7,7 +7,7 @@ const envSchema = z
   .object({
     PORT: z.coerce.number().default(4000),
     HOST: z.string().default('0.0.0.0'),
-    NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+    NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
     API_PREFIX: z.string().default('/api/v1'),
 
     CORS_ALLOWED_ORIGINS: z
@@ -63,6 +63,19 @@ const envSchema = z
     GOOGLE_MAPS_API_KEY: z.string().default('mock_gmaps_key'),
     LOCATION_FRESHNESS_THRESHOLD_SECONDS: z.coerce.number().default(900), // 15 mins
     LOCATION_THROTTLE_SECONDS: z.coerce.number().default(5), // 5 seconds min interval
+
+    // Controlled Pilot Zone Configuration (Phase 4M)
+    PILOT_ZONE_CONFIRMED: z.string().default('false'),
+    PILOT_CLUSTER_NAME: z.string().optional(),
+    PILOT_CITY: z.string().optional(),
+    PILOT_STATE: z.string().optional(),
+    PILOT_PINCODES: z.string().optional(),
+    PILOT_MIN_LAT: z.coerce.number().optional(),
+    PILOT_MAX_LAT: z.coerce.number().optional(),
+    PILOT_MIN_LNG: z.coerce.number().optional(),
+    PILOT_MAX_LNG: z.coerce.number().optional(),
+    PILOT_TARGET_CUSTOMER_COHORT: z.coerce.number().default(50),
+    PILOT_TARGET_PROVIDER_COHORT: z.coerce.number().default(10),
   })
   .refine(
     (data) => {
@@ -83,6 +96,17 @@ const envSchema = z
         );
         if (isDefaultDb) return false;
 
+        // Phase 4M: Production MUST reject mock providers
+        if (data.PAYMENT_GATEWAY_PROVIDER === 'mock') {
+          return false;
+        }
+        if (data.SMS_GATEWAY_PROVIDER === 'mock') {
+          return false;
+        }
+        if (data.STORAGE_PROVIDER === 'mock') {
+          return false;
+        }
+
         if (data.PAYMENT_GATEWAY_PROVIDER === 'razorpay') {
           if (!data.RAZORPAY_KEY_ID || data.RAZORPAY_KEY_ID === 'rzp_test_example')
             return false;
@@ -101,16 +125,15 @@ const envSchema = z
             return false;
         }
 
-        if (data.SMS_GATEWAY_PROVIDER !== 'mock') {
-          if (!data.SMS_GATEWAY_API_KEY || data.SMS_GATEWAY_API_KEY === 'mock_key')
-            return false;
+        if (!data.SMS_GATEWAY_API_KEY || data.SMS_GATEWAY_API_KEY === 'mock_key') {
+          return false;
         }
       }
       return true;
     },
     {
       message:
-        'CRITICAL SECURITY ERROR: Production deployment cannot use hardcoded development secrets, weak passwords, or unconfigured cloud provider credentials.',
+        'CRITICAL SECURITY ERROR: Production deployment cannot use hardcoded development secrets, weak passwords, unconfigured cloud provider credentials, or mock external service providers.',
     }
   );
 

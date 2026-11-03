@@ -8,6 +8,8 @@ import {
 import { NotFoundError } from '../../common/errors/app-error.js';
 import { financialService } from '../financial/financial.service.js';
 import { monitoringService } from '../monitoring/monitoring.service.js';
+import { getPilotConfig } from '../../config/pilot.config.js';
+import { safelyMaskKycDocumentNumber } from '../../common/utils/kyc-masking.js';
 
 export class AdminService {
   /**
@@ -63,10 +65,10 @@ export class AdminService {
   }
 
   /**
-   * Retrieves comprehensive pilot performance metrics and operational KPIs (Phase 4L)
-   * Separates real pilot telemetry from seed data.
+   * Retrieves comprehensive pilot performance metrics and operational KPIs (Phase 4M)
+   * Separates real pilot telemetry from seed data. Never displays hardcoded or simulated values.
    */
-  async getPilotMetrics(filter?: { startDate?: string; endDate?: string }) {
+  async getPilotMetrics(filter?: { startDate?: string; endDate?: string; excludeSeedData?: boolean }) {
     const dateFilter: any = {};
     if (filter?.startDate) {
       dateFilter.gte = new Date(filter.startDate);
@@ -75,6 +77,8 @@ export class AdminService {
       dateFilter.lte = new Date(filter.endDate);
     }
     const whereCreatedAt = Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {};
+
+    const pilotConfig = getPilotConfig();
 
     const [
       totalBookings,
@@ -87,7 +91,11 @@ export class AdminService {
       totalCapturedPayments,
       failedTransactions,
       settledLedgerEntries,
-      activePilotProviders,
+      totalRegisteredCustomers,
+      totalRegisteredProviders,
+      verifiedOnlineProviders,
+      verifiedOfflineProviders,
+      acceptedOffersWithTimestamps,
     ] = await Promise.all([
       prisma.booking.count({ where: whereCreatedAt }),
       prisma.booking.count({
@@ -137,11 +145,29 @@ export class AdminService {
           amountPaisa: true,
         },
       }),
+      prisma.user.count({
+        where: { userRoles: { some: { roleId: 'CUSTOMER' } } },
+      }),
+      prisma.provider.count(),
       prisma.provider.count({
         where: {
           verificationStatus: 'VERIFIED',
           isOnline: true,
         },
+      }),
+      prisma.provider.count({
+        where: {
+          verificationStatus: 'VERIFIED',
+          isOnline: false,
+        },
+      }),
+      prisma.dispatchOffer.findMany({
+        where: {
+          ...whereCreatedAt,
+          status: 'ACCEPTED',
+          respondedAt: { not: null },
+        },
+        select: { createdAt: true, respondedAt: true },
       }),
     ]);
 
@@ -156,6 +182,25 @@ export class AdminService {
     const refundRate = totalCapturedPayments > 0
       ? Number(((totalRefunds / totalCapturedPayments) * 100).toFixed(2))
       : 0;
+
+    // Calculate actual average dispatch response time (seconds) from real timestamps
+    let avgDispatchTimeSeconds: number | null = null;
+    if (acceptedOffersWithTimestamps && acceptedOffersWithTimestamps.length > 0) {
+      let sumSeconds = 0;
+      let validCount = 0;
+      for (const off of acceptedOffersWithTimestamps) {
+        if (off.createdAt && off.respondedAt) {
+          const diffMs = new Date(off.respondedAt).getTime() - new Date(off.createdAt).getTime();
+          if (diffMs >= 0) {
+            sumSeconds += Math.round(diffMs / 1000);
+            validCount++;
+          }
+        }
+      }
+      if (validCount > 0) {
+        avgDispatchTimeSeconds = Math.round(sumSeconds / validCount);
+      }
+    }
 
     let totalPlatformCommissionPaisa = 0;
     let totalProviderEarningsPaisa = 0;
@@ -174,14 +219,42 @@ export class AdminService {
     const totalReviews = allReviews.length;
     const avgCustomerRating = totalReviews > 0
       ? Number((allReviews.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / totalReviews).toFixed(2))
-      : 5.0;
+      : null;
+
+    // Dynamically derive pilot readiness from real configured conditions
+    const isPilotZoneConfigured = pilotConfig.isConfirmedByOwner && pilotConfig.pincodes.length > 0;
+    const hasVerifiedOnlineProviders = verifiedOnlineProviders > 0;
+    const isPilotReady = isPilotZoneConfigured && hasVerifiedOnlineProviders;
+
+    const readinessBlockers: string[] = [];
+    if (!pilotConfig.isConfirmedByOwner) {
+      readinessBlockers.push('PILOT_ZONE_NOT_CONFIRMED');
+    }
+    if (verifiedOnlineProviders === 0) {
+      readinessBlockers.push('NO_ONLINE_VERIFIED_PROVIDERS');
+    }
 
     return {
       pilotZone: {
-        clusterName: 'Bengaluru South & East Corridor',
-        pincodes: ['560034', '560102', '560068', '560038'],
-        activeProviders: activePilotProviders,
-        targetCustomerCohort: 50,
+        status: pilotConfig.status,
+        isConfirmedByOwner: pilotConfig.isConfirmedByOwner,
+        clusterName: pilotConfig.clusterName,
+        city: pilotConfig.city,
+        state: pilotConfig.state,
+        pincodes: pilotConfig.pincodes,
+        bounds: pilotConfig.bounds,
+      },
+      cohorts: {
+        customers: {
+          targetCohortSize: pilotConfig.targetCustomerCohort,
+          actualRegistered: totalRegisteredCustomers,
+        },
+        providers: {
+          targetCohortSize: pilotConfig.targetProviderCohort,
+          totalRegistered: totalRegisteredProviders,
+          verifiedOnline: verifiedOnlineProviders,
+          verifiedOffline: verifiedOfflineProviders,
+        },
       },
       kpis: {
         totalBookings,
@@ -190,7 +263,7 @@ export class AdminService {
         dispatchedOffers,
         acceptedOffers,
         providerAcceptanceRatePercent: providerAcceptanceRate,
-        avgDispatchTimeSeconds: 48,
+        avgDispatchTimeSeconds,
         customerSatisfaction: {
           avgRating: avgCustomerRating,
           totalReviews,
@@ -209,14 +282,17 @@ export class AdminService {
         tdsRatePercent: 1.0,
       },
       dataIntegrity: {
-        isPilotReady: true,
+        isPilotReady,
+        readinessBlockers,
+        telemetryMode: totalBookings === 0 ? 'NO_LIVE_ACTIVITY' : 'LIVE_PILOT_TELEMETRY',
         simulatedVsLive: totalBookings === 0 ? 'NO_PILOT_TRAFFIC_YET' : 'LIVE_PILOT_RECORDED',
       },
     };
   }
 
   /**
-   * Retrieves pending KYC documents for review
+   * Retrieves pending KYC documents for review.
+   * DPDPA & Aadhaar Act Compliance: Guarantees raw document numbers are NEVER returned unmasked.
    */
   async getPendingKycDocuments() {
     const docs = await prisma.providerDocument.findMany({
@@ -231,11 +307,18 @@ export class AdminService {
       orderBy: { createdAt: 'asc' },
     });
 
-    // DPDPA & Aadhaar Act Compliance: Return masked document number for dashboard operations
-    return docs.map((doc) => ({
-      ...doc,
-      documentNumber: doc.maskedDocumentNumber || doc.documentNumber,
-    }));
+    return docs.map((doc) => {
+      const safeMasked = safelyMaskKycDocumentNumber(
+        doc.documentType,
+        doc.documentNumber,
+        doc.maskedDocumentNumber
+      );
+      return {
+        ...doc,
+        documentNumber: safeMasked,
+        maskedDocumentNumber: safeMasked,
+      };
+    });
   }
 
   /**

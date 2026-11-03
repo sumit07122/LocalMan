@@ -20,6 +20,7 @@ export interface RefundOptions {
   gatewayPaymentId: string;
   amountPaisa: number;
   reason: string;
+  idempotencyKey?: string;
 }
 
 export interface VerifyPaymentOptions {

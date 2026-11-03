@@ -15,7 +15,7 @@ services:
     autoDeployTrigger: checksPass
     envVars:
       - key: NODE_ENV
-        value: production
+        value: staging
       - key: PORT
         value: 10000
       - key: HOST

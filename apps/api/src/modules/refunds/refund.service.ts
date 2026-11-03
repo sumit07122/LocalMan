@@ -91,36 +91,37 @@ export class RefundService {
       );
     }
 
-    // 3. Idempotency Check
-    if (idempotencyKey) {
-      const existingRefund = await prisma.refund.findFirst({
-        where: {
-          paymentId: payment.id,
-          OR: [
-            { idempotencyKey },
-            { reason: { contains: `[idempotency:${idempotencyKey}]` } },
-          ],
-        },
-      });
+    // 3. Persistent Idempotency Check
+    const effectiveIdempotencyKey = idempotencyKey || `refund_auto_${payment.id}_${targetRefundPaisa}`;
 
-      if (existingRefund) {
-        return {
-          refundId: existingRefund.id,
-          paymentId: payment.id,
-          bookingId: booking.id,
-          originalAmountPaisa: payment.amountPaisa,
-          refundAmountPaisa: existingRefund.amountPaisa,
-          remainingRefundablePaisa: Math.max(
-            0,
-            payment.amountPaisa - previouslyRefundedPaisa
-          ),
-          gatewayRefundId: existingRefund.gatewayRefundId,
-          status: existingRefund.status,
-          reason: existingRefund.reason,
-          initiatedBy: existingRefund.initiatedBy,
-          createdAt: existingRefund.createdAt.toISOString(),
-        };
-      }
+    const existingRefund = await prisma.refund.findFirst({
+      where: {
+        paymentId: payment.id,
+        OR: [
+          { idempotencyKey: effectiveIdempotencyKey },
+          { reason: { contains: `[idempotency:${effectiveIdempotencyKey}]` } },
+          ...(idempotencyKey ? [{ idempotencyKey }] : []),
+        ],
+      },
+    });
+
+    if (existingRefund) {
+      return {
+        refundId: existingRefund.id,
+        paymentId: payment.id,
+        bookingId: booking.id,
+        originalAmountPaisa: payment.amountPaisa,
+        refundAmountPaisa: existingRefund.amountPaisa,
+        remainingRefundablePaisa: Math.max(
+          0,
+          payment.amountPaisa - previouslyRefundedPaisa
+        ),
+        gatewayRefundId: existingRefund.gatewayRefundId,
+        status: existingRefund.status,
+        reason: existingRefund.reason,
+        initiatedBy: existingRefund.initiatedBy,
+        createdAt: existingRefund.createdAt.toISOString(),
+      };
     }
 
     // 4. Emit REFUND_PROCESSING realtime event
@@ -135,16 +136,19 @@ export class RefundService {
       },
     });
 
-    // 5. Call Gateway Refund Adapter
+    // 5. Call Gateway Refund Adapter with persistent idempotencyKey
     const gateway = this.paymentService.getAdapter();
     const gatewayResult = await gateway.processRefund({
       gatewayPaymentId: payment.gatewayPaymentId || `pay_mock_${payment.id}`,
       amountPaisa: targetRefundPaisa,
       reason,
+      idempotencyKey: effectiveIdempotencyKey,
     });
 
     // 6. Execute Atomic Transaction: Database Refund + Booking/Payment state
-    const refundRecordReason = idempotencyKey ? `${reason} [idempotency:${idempotencyKey}]` : reason;
+    const refundRecordReason = idempotencyKey
+      ? `${reason} [idempotency:${effectiveIdempotencyKey}]`
+      : reason;
 
     const result = await prisma.$transaction(async (tx) => {
       // Create Refund record
@@ -156,7 +160,7 @@ export class RefundService {
           initiatedBy,
           status: 'SUCCEEDED',
           gatewayRefundId: gatewayResult.gatewayRefundId,
-          idempotencyKey: idempotencyKey || null,
+          idempotencyKey: effectiveIdempotencyKey,
         },
       });
 

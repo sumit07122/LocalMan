@@ -160,3 +160,14 @@ CI test env uses mock providers: `STORAGE_PROVIDER=mock SMS_GATEWAY_PROVIDER=moc
   - Created automated pilot readiness test suite `apps/api/test/pilot-readiness.test.ts` (12/12 passed).
   - Built owner approval checklist with status "READY FOR OWNER APPROVAL".
   - Generated master playbook `docs/PHASE_4L_PILOT_LAUNCH_READINESS_REPORT.md`.
+- 2026-11-03: Phase 4M Final Pilot Pre-Launch Validation & Owner Gate Closure complete:
+  - Rectified pilot telemetry in `apps/api/src/modules/admin/admin.service.ts`: removed hardcoded `avgDispatchTimeSeconds: 48` and `isPilotReady: true`; calculated genuine average dispatch duration from `(respondedAt - createdAt)` on accepted offers (returns `null` when no real data); dynamically derived readiness from owner zone confirmation and verified online provider count; clearly separated target cohorts from registered database cohorts; excluded seed/demo data.
+  - Hardened KYC privacy in `apps/api/src/common/utils/kyc-masking.ts`: implemented strict UIDAI 8-digit masking (`XXXXXXXX1234`) and PAN masking (`ABXXXXXX4F`); eliminated raw document number fallback (`XXXXXXXX****` on empty/missing mask).
+  - Certified refund idempotency: added `idempotencyKey?: string` to `RefundOptions`; replaced unstable `rfnd_${Date.now()}` with deterministic SHA-256 hash operation IDs across `mock.adapter.ts` and `razorpay.adapter.ts`; added immediate short-circuiting in `refund.service.ts` for identical idempotency keys without duplicate gateway invocations.
+  - Implemented pilot zone configuration layer (`apps/api/src/config/pilot.config.ts`): holds launch geography in `PILOT_ZONE_NOT_CONFIRMED` state unless owner explicitly confirms via `PILOT_ZONE_CONFIRMED='true'`; validates target pincodes and geofence.
+  - Disambiguated staging vs production boundaries in `env.ts` and `render.yaml`: enabled `NODE_ENV='staging'` for Render staging deployment; production strictly rejects mock payment, SMS, and storage.
+  - Explicitly classified operational contact phone numbers, support emails, and legal entity names as unverified placeholders requiring owner provisioning.
+  - Formalized 15-item Owner Action Gates checklist with all items classified as `PENDING OWNER ACTION`.
+  - Final Gate Verdict: **BLOCKED — OWNER ACTION REQUIRED**.
+  - Verified full test suites: 100/100 API tests pass, 107/107 Customer App Flutter tests pass, 31/31 Provider App Flutter tests pass, 0 compile errors across `@localman/api` and `@localman/admin-web`, 0 Flutter analyzer errors, and 0 secrets in working tree.
+  - Generated master audit report `docs/PHASE_4M_FINAL_PILOT_PRELAUNCH_AUDIT.md`.

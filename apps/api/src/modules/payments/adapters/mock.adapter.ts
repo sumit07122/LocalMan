@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import {
   PaymentGatewayAdapter,
   CreateOrderOptions,
@@ -30,9 +31,11 @@ export class MockPaymentAdapter implements PaymentGatewayAdapter {
     return Boolean(signature && signature.length > 0 && signature !== 'invalid_signature' && signature !== 'bad_signature');
   }
 
-  async processRefund(_options: RefundOptions): Promise<{ gatewayRefundId: string }> {
+  async processRefund(options: RefundOptions): Promise<{ gatewayRefundId: string }> {
+    const seed = options.idempotencyKey || `${options.gatewayPaymentId}_${options.amountPaisa}`;
+    const hash = crypto.createHash('sha256').update(seed).digest('hex').substring(0, 16);
     return {
-      gatewayRefundId: `rfnd_mock_${Date.now()}`,
+      gatewayRefundId: `rfnd_mock_${hash}`,
     };
   }
 }
