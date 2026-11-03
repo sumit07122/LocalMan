@@ -306,9 +306,10 @@ describe('Phase 4K: Production Security, Financial Integrity & Reliability Audit
   // 2. FINANCIAL INTEGRITY & CANONICAL INVARIANTS
   // =========================================================================
   describe('2. Financial Integrity & Invariants Verification', () => {
-    it('2.1 Canonical 15% platform commission and 1% TDS baseline constants are immutable', () => {
+    it('2.1 Canonical 15% platform commission and statutory TDS baseline constants are immutable', () => {
       assert.strictEqual(FinancialService.DEFAULT_COMMISSION_PERCENT, 15.0);
-      assert.strictEqual(FinancialService.STATUTORY_TDS_PERCENT, 1.0);
+      // Phase 4N: Section 194-O official amended statutory rate is 0.1% (w.e.f. 01.10.2024)
+      assert.strictEqual(FinancialService.STATUTORY_TDS_PERCENT, 0.1);
     });
 
     it('2.2 Integer paisa invariant & funds conservation: Gross = Fee + TDS + Net Earning', () => {
@@ -329,7 +330,7 @@ describe('Phase 4K: Production Security, Financial Integrity & Reliability Audit
 
         // Canonical percentages
         assert.strictEqual(fin.platformFeePaisa, Math.round(gross * 0.15));
-        assert.strictEqual(fin.tdsDeductionPaisa, Math.round(gross * 0.01));
+        assert.strictEqual(fin.tdsDeductionPaisa, Math.round(gross * (FinancialService.STATUTORY_TDS_PERCENT / 100)));
       }
     });
 

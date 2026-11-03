@@ -64,11 +64,12 @@ const envSchema = z
     LOCATION_FRESHNESS_THRESHOLD_SECONDS: z.coerce.number().default(900), // 15 mins
     LOCATION_THROTTLE_SECONDS: z.coerce.number().default(5), // 5 seconds min interval
 
-    // Controlled Pilot Zone Configuration (Phase 4M)
+    // Controlled Pilot Zone Configuration (Phase 4M & 4N - Mathura, UP)
     PILOT_ZONE_CONFIRMED: z.string().default('false'),
-    PILOT_CLUSTER_NAME: z.string().optional(),
-    PILOT_CITY: z.string().optional(),
-    PILOT_STATE: z.string().optional(),
+    PILOT_ENFORCEMENT_ENABLED: z.string().default('false'),
+    PILOT_CLUSTER_NAME: z.string().default('Mathura Pilot Cluster'),
+    PILOT_CITY: z.string().default('Mathura'),
+    PILOT_STATE: z.string().default('Uttar Pradesh'),
     PILOT_PINCODES: z.string().optional(),
     PILOT_MIN_LAT: z.coerce.number().optional(),
     PILOT_MAX_LAT: z.coerce.number().optional(),
@@ -76,6 +77,14 @@ const envSchema = z
     PILOT_MAX_LNG: z.coerce.number().optional(),
     PILOT_TARGET_CUSTOMER_COHORT: z.coerce.number().default(50),
     PILOT_TARGET_PROVIDER_COHORT: z.coerce.number().default(10),
+
+    // Statutory Tax & Withholding Configuration (Phase 4N)
+    // Section 194-O amended rate: 0.1% w.e.f. 01.10.2024
+    TAX_POLICY_APPROVED_BY_CA: z.string().default('false'),
+    STATUTORY_TDS_RATE_PERCENT: z.coerce.number().default(0.1),
+    NO_PAN_TDS_RATE_PERCENT: z.coerce.number().default(5.0),
+    TDS_THRESHOLD_EXEMPTION_ENABLED: z.string().default('false'),
+    GST_ON_COMMISSION_PERCENT: z.coerce.number().default(18.0),
   })
   .refine(
     (data) => {

@@ -9,6 +9,7 @@ import { NotFoundError } from '../../common/errors/app-error.js';
 import { financialService } from '../financial/financial.service.js';
 import { monitoringService } from '../monitoring/monitoring.service.js';
 import { getPilotConfig } from '../../config/pilot.config.js';
+import { getTaxConfig } from '../../config/tax.config.js';
 import { safelyMaskKycDocumentNumber } from '../../common/utils/kyc-masking.js';
 
 export class AdminService {
@@ -279,7 +280,10 @@ export class AdminService {
         totalTdsDeductedPaisa,
         totalTdsDeductedInr: (totalTdsDeductedPaisa / 100).toFixed(2),
         commissionRatePercent: 15.0,
-        tdsRatePercent: 1.0,
+        tdsRatePercent: getTaxConfig().statutoryTdsRatePercent,
+        taxPolicyStatus: getTaxConfig().status,
+        isTaxPolicyApprovedByCa: getTaxConfig().isApprovedByCa,
+        statutoryReference: getTaxConfig().statutoryReference,
       },
       dataIntegrity: {
         isPilotReady,

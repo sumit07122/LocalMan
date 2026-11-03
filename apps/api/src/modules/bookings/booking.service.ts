@@ -23,6 +23,7 @@ import { AuthenticatedUser } from '../../common/middleware/auth.middleware.js';
 import { dispatchService } from '../dispatch/dispatch.service.js';
 import { realtimeService } from '../realtime/realtime.service.js';
 import { FinancialService } from '../financial/financial.service.js';
+import { getPilotConfig, isPincodeInPilotZone } from '../../config/pilot.config.js';
 
 export class BookingService {
   /**
@@ -100,6 +101,17 @@ export class BookingService {
 
     if (address.userId !== customer.id) {
       throw new ForbiddenError('You do not have permission to use this address.');
+    }
+
+    // Pilot Zone Validation (Phase 4N: Mathura Pilot)
+    // When pilot enforcement is active, reject bookings outside confirmed pilot zone
+    if (process.env.PILOT_ENFORCEMENT_ENABLED === 'true') {
+      const pilotConfig = getPilotConfig();
+      if (!pilotConfig.isConfirmedByOwner || !isPincodeInPilotZone(address.postalCode)) {
+        throw new ValidationError(
+          `Service is currently restricted to owner-confirmed pilot neighborhoods in Mathura, UP. The address pincode (${address.postalCode || 'unspecified'}) is outside the authorized pilot zone.`
+        );
+      }
     }
 
     // 4. Scheduling Validation

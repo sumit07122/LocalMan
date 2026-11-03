@@ -11,6 +11,11 @@ import {
   UpdatePayoutStatusInput,
   QueryLedgerInput,
 } from '@localman/contracts';
+import {
+  getTaxConfig,
+  calculateStatutoryTdsPaisa,
+  isLiveDisbursementPermitted,
+} from '../../config/tax.config.js';
 
 export interface CalculatedFinancials {
   grossAmountPaisa: number;
@@ -24,13 +29,19 @@ export interface CalculatedFinancials {
 export class FinancialService {
   /**
    * Authoritative platform commission baseline rate (15.00%)
+   * Commercial fee for marketplace facilitation - strictly platform revenue.
+   * NEVER conflated with statutory tax withholding or labeled as GST.
    */
   public static readonly DEFAULT_COMMISSION_PERCENT = 15.0;
 
   /**
-   * Statutory TDS deduction rate under Section 194O of Indian Income Tax Act (1.00%)
+   * Statutory TDS deduction rate under Section 194-O of Indian Income Tax Act.
+   * Following Finance (No. 2) Act 2024 effective 1 October 2024, the official rate is 0.1% (amended from 1.0%).
+   * Dynamically resolved from getTaxConfig().
    */
-  public static readonly STATUTORY_TDS_PERCENT = 1.0;
+  public static get STATUTORY_TDS_PERCENT(): number {
+    return getTaxConfig().statutoryTdsRatePercent;
+  }
 
   /**
    * Minimum allowable payout withdrawal in paisa (₹100 = 10,000 paisa)
@@ -260,10 +271,20 @@ export class FinancialService {
           commissionRate = serviceRate;
         }
 
+        const taxConfig = getTaxConfig();
+        const hasPan = Boolean(
+          (booking.provider as any)?.panNumber || booking.provider?.verificationStatus === 'VERIFIED'
+        );
+        const tdsCalculation = calculateStatutoryTdsPaisa({
+          grossAmountPaisa: booking.totalAmountPaisa,
+          hasVerifiedPan: hasPan,
+        });
+
         const financials = FinancialService.calculateFinancials({
           grossAmountPaisa: booking.totalAmountPaisa,
           commissionPercentOverride: commissionRate,
           platformFeePaisaPreset: booking.platformFeePaisa > 0 ? booking.platformFeePaisa : undefined,
+          tdsPercentOverride: tdsCalculation.tdsRatePercent,
         });
 
         // Ensure wallet exists
@@ -292,6 +313,7 @@ export class FinancialService {
             appliedTdsRate: financials.tdsRate,
             payoutMode: 'BANK_TRANSFER',
             status: 'PENDING',
+            failureReason: taxConfig.isApprovedByCa ? null : 'TAX_POLICY_PENDING_CA_APPROVAL',
             idempotencyKey: `payout_settle_${booking.id}_${payment.id}`,
           },
         });
@@ -311,13 +333,17 @@ export class FinancialService {
             resultingPendingPaisa: updatedWallet.pendingBalancePaisa,
             idempotencyKey: `ledger_settle_${booking.id}_${payment.id}`,
             sourceReferenceId: gatewayPaymentId,
-            description: `Net earnings from booking ${booking.bookingNumber} after ${financials.platformCommissionRate}% commission and 1% TDS`,
+            description: `Net earnings from booking ${booking.bookingNumber} after ${financials.platformCommissionRate}% platform fee and ${financials.tdsRate}% Section 194-O TDS`,
             metadata: {
               grossAmountPaisa: financials.grossAmountPaisa,
               platformFeePaisa: financials.platformFeePaisa,
+              platformCommissionRate: financials.platformCommissionRate,
               tdsDeductionPaisa: financials.tdsDeductionPaisa,
-              appliedCommissionRate: financials.platformCommissionRate,
               appliedTdsRate: financials.tdsRate,
+              taxPolicyStatus: taxConfig.status,
+              isApprovedByCa: taxConfig.isApprovedByCa,
+              statutoryReference: tdsCalculation.ruleCitation,
+              remittanceStatus: 'WITHHELD_IN_ESCROW_NOT_REMITTED',
             },
           },
         });
@@ -639,6 +665,11 @@ export class FinancialService {
       const wallet = await this.getOrCreateWallet(payout.providerId, tx);
 
       if (input.status === 'PAID') {
+        if (!isLiveDisbursementPermitted()) {
+          throw new ForbiddenError(
+            'Live provider payout disbursement is blocked pending explicit CA tax policy determination and owner authorization.'
+          );
+        }
         // Move funds from pending to paid-out
         const updatedWallet = await tx.providerWallet.update({
           where: { id: wallet.id },

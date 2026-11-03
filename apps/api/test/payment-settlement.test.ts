@@ -8,7 +8,7 @@ import { prisma } from '../src/config/database.js';
 import { BookingStatus, PaymentStatus } from '@localman/constants';
 import { RazorpayAdapter } from '../src/modules/payments/adapters/razorpay.adapter.js';
 import { MockPaymentAdapter } from '../src/modules/payments/adapters/mock.adapter.js';
-import { financialService } from '../src/modules/financial/financial.service.js';
+import { financialService, FinancialService } from '../src/modules/financial/financial.service.js';
 import { env } from '../src/config/env.js';
 
 describe('Phase 3F — Customer Payment, Checkout, Settlement & Financial Integration Tests', () => {
@@ -543,8 +543,11 @@ describe('Phase 3F — Customer Payment, Checkout, Settlement & Financial Integr
     // Expected Financial Settlement:
     // Gross: 118000 paisa
     // 15% Platform Commission: 118000 * 0.15 = 17700 paisa
-    // 1% TDS on Gross: 118000 * 0.01 = 1180 paisa
-    // Net Provider Amount: 118000 - 17700 - 1180 = 99120 paisa (₹991.20)
+    // Statutory Section 194-O TDS on Gross
+    const expectedTdsRate = FinancialService.STATUTORY_TDS_PERCENT;
+    const expectedTds = Math.round(118000 * (expectedTdsRate / 100));
+    const expectedNet = 118000 - 17700 - expectedTds;
+
     const payouts = await mockPrisma.providerPayout.findMany({
       where: { bookingId: booking.id },
     });
@@ -552,10 +555,10 @@ describe('Phase 3F — Customer Payment, Checkout, Settlement & Financial Integr
     const payout = payouts[0];
     assert.equal(payout.grossAmountPaisa, 118000);
     assert.equal(payout.platformDeductionPaisa, 17700);
-    assert.equal(payout.tdsDeductionPaisa, 1180);
-    assert.equal(payout.netPayoutPaisa, 99120);
+    assert.equal(payout.tdsDeductionPaisa, expectedTds);
+    assert.equal(payout.netPayoutPaisa, expectedNet);
     assert.equal(payout.appliedCommissionRate, 15.0);
-    assert.equal(payout.appliedTdsRate, 1.0);
+    assert.equal(payout.appliedTdsRate, expectedTdsRate);
 
     const payment = Array.from(mockPrisma._store.payments.values()).find(
       (p: any) => p.bookingId === booking.id
@@ -592,9 +595,10 @@ describe('Phase 3F — Customer Payment, Checkout, Settlement & Financial Integr
     // Check provider wallet
     const wallet = await financialService.getProviderWalletSummary(provider.id);
     assert.ok(wallet);
-    // Net: 100000 - 15000 (15%) - 1000 (1%) = 84000 paisa
-    assert.equal(wallet.availableBalancePaisa, 84000);
-    assert.equal(wallet.totalEarnedPaisa, 84000);
+    const expectedTds16 = Math.round(100000 * (FinancialService.STATUTORY_TDS_PERCENT / 100));
+    const expectedNet16 = 100000 - 15000 - expectedTds16;
+    assert.equal(wallet.availableBalancePaisa, expectedNet16);
+    assert.equal(wallet.totalEarnedPaisa, expectedNet16);
 
     // Check WalletLedgerEntry
     const ledgerEntries = await mockPrisma.walletLedgerEntry.findMany({
@@ -602,8 +606,8 @@ describe('Phase 3F — Customer Payment, Checkout, Settlement & Financial Integr
     });
     assert.equal(ledgerEntries.length, 1);
     assert.equal(ledgerEntries[0].direction, 'CREDIT');
-    assert.equal(ledgerEntries[0].amountPaisa, 84000);
-    assert.equal(ledgerEntries[0].resultingAvailablePaisa, 84000);
+    assert.equal(ledgerEntries[0].amountPaisa, expectedNet16);
+    assert.equal(ledgerEntries[0].resultingAvailablePaisa, expectedNet16);
   });
 
   test('17. ProviderPayout: Payout record created with PENDING status and scheduled availableAt', async () => {
@@ -634,11 +638,12 @@ describe('Phase 3F — Customer Payment, Checkout, Settlement & Financial Integr
     });
     assert.ok(payouts.length >= 1);
     const payout = payouts[0];
+    const expectedTds17 = Math.round(50000 * (FinancialService.STATUTORY_TDS_PERCENT / 100));
+    const expectedNet17 = 50000 - 7500 - expectedTds17;
     assert.equal(payout.status, 'PENDING');
     assert.equal(payout.appliedCommissionRate, 15.0);
-    assert.equal(payout.appliedTdsRate, 1.0);
-    // Net: 50000 - 7500 (15%) - 500 (1%) = 42000
-    assert.equal(payout.netPayoutPaisa, 42000);
+    assert.equal(payout.appliedTdsRate, FinancialService.STATUTORY_TDS_PERCENT);
+    assert.equal(payout.netPayoutPaisa, expectedNet17);
   });
 
   test('18. Strict Financial Invariant: availableBalance + paidOutBalance + pendingPayouts == totalEarned', async () => {

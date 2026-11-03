@@ -16,7 +16,8 @@ export interface PilotZoneConfig {
 }
 
 /**
- * Controlled Marketplace Pilot Configuration (Phase 4M)
+ * Controlled Marketplace Pilot Configuration (Phase 4M & 4N)
+ * Owner Selected Pilot Location: Mathura, Uttar Pradesh.
  * Geofenced pilot zones require explicit project owner confirmation before activation.
  * Never silently activate a pilot zone without owner configuration.
  */
@@ -30,9 +31,9 @@ export function getPilotConfig(): PilotZoneConfig {
     return {
       isConfirmedByOwner: false,
       status: 'PILOT_ZONE_NOT_CONFIRMED',
-      clusterName: null,
-      city: null,
-      state: null,
+      clusterName: 'Mathura Pilot Cluster (Pending Owner Neighborhood Confirmation)',
+      city: 'Mathura',
+      state: 'Uttar Pradesh',
       pincodes: [],
       bounds: null,
       targetCustomerCohort,
@@ -40,9 +41,9 @@ export function getPilotConfig(): PilotZoneConfig {
     };
   }
 
-  const clusterName = process.env.PILOT_CLUSTER_NAME || 'Owner Approved Pilot Cluster';
-  const city = process.env.PILOT_CITY || 'Unconfirmed';
-  const state = process.env.PILOT_STATE || 'Unconfirmed';
+  const clusterName = process.env.PILOT_CLUSTER_NAME || 'Mathura Pilot Cluster';
+  const city = process.env.PILOT_CITY || 'Mathura';
+  const state = process.env.PILOT_STATE || 'Uttar Pradesh';
   const pincodes = (process.env.PILOT_PINCODES || '')
     .split(',')
     .map((p) => p.trim())

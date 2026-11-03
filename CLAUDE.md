@@ -44,11 +44,13 @@ npm run build --workspace=@localman/admin-web
 CI test env uses mock providers: `STORAGE_PROVIDER=mock SMS_GATEWAY_PROVIDER=mock PAYMENT_GATEWAY_PROVIDER=mock`.
 
 ## 4. Non-negotiable business rules
-- Platform commission **15%**; TDS **1%** (`FinancialService.DEFAULT_COMMISSION_PERCENT`, `STATUTORY_TDS_PERCENT` in `apps/api/src/modules/financial/financial.service.ts`).
+- Platform commission **15%** (strictly commercial revenue); Statutory TDS **0.1%** w.e.f. 1 October 2024 under Section 194-O per Finance (No. 2) Act 2024 (`FinancialService.DEFAULT_COMMISSION_PERCENT`, `FinancialService.STATUTORY_TDS_PERCENT`, `apps/api/src/config/tax.config.ts`).
+- Live provider payout disbursements (`status: PAID`) are strictly blocked until formal CA tax determination is approved (`TAX_POLICY_APPROVED_BY_CA=true`).
 - All money stored as **integer paisa**. No floats persisted.
 - **Backend owns all financial calculations.** Clients never compute authoritative amounts.
 - Booking and Payment are **separate state machines** (`BookingStatusEnum`, `PaymentStatusEnum`).
-- Secure OTP verification and protected KYC data are mandatory.
+- Pilot territory: **Mathura, Uttar Pradesh** (defaults to `status: 'PILOT_ZONE_NOT_CONFIRMED'`; out-of-zone bookings and automated dispatch blocked under pilot enforcement).
+- Secure OTP verification and protected KYC data (UIDAI 8-digit masking `XXXXXXXX1234`, PAN masking `ABXXXXXX4F`) are mandatory.
 - Do **not change financial rules** without explicit owner approval.
 
 ## 5. Working rules for agents
@@ -171,3 +173,14 @@ CI test env uses mock providers: `STORAGE_PROVIDER=mock SMS_GATEWAY_PROVIDER=moc
   - Final Gate Verdict: **BLOCKED — OWNER ACTION REQUIRED**.
   - Verified full test suites: 100/100 API tests pass, 107/107 Customer App Flutter tests pass, 31/31 Provider App Flutter tests pass, 0 compile errors across `@localman/api` and `@localman/admin-web`, 0 Flutter analyzer errors, and 0 secrets in working tree.
   - Generated master audit report `docs/PHASE_4M_FINAL_PILOT_PRELAUNCH_AUDIT.md`.
+- 2026-11-03: Phase 4N Financial Tax Rule Validation & Mathura Pilot Configuration complete:
+  - Reconciled Section 194-O statutory TDS rate to official amended 0.1% (Finance (No. 2) Act 2024 effective 01.10.2024) vs. prior 1.0% baseline, citing official Income Tax Department sources.
+  - Enforced strict architectural separation between commercial platform commission (15.0% revenue) and statutory tax withholding (0.1% TDS), ensuring commission is never labeled as GST.
+  - Implemented centralized tax policy configuration engine (`apps/api/src/config/tax.config.ts`) supporting Section 206AA 5.0% non-PAN withholding and Section 194-O(2) ₹5L annual gross exemption.
+  - Implemented live payout disbursement safety gate in `FinancialService.updatePayoutStatus` hard-blocking `PAID` status unless `TAX_POLICY_APPROVED_BY_CA=true`.
+  - Payout records and ledger entries explicitly track withheld taxes with `remittanceStatus: 'WITHHELD_IN_ESCROW_NOT_REMITTED'`.
+  - Replaced Bengaluru pilot configuration with Mathura, Uttar Pradesh (`apps/api/src/config/pilot.config.ts`, `env.ts`), defaulting to `PILOT_ZONE_NOT_CONFIRMED` (`isConfirmedByOwner: false`).
+  - Added geofence and out-of-zone enforcement in `BookingService` and `DispatchService` when `PILOT_ENFORCEMENT_ENABLED=true`.
+  - Evaluated ₹0 budget staging architecture: Cloudflare Pages (Admin Web), Render Free (API), and Neon Free Serverless PostgreSQL with PostGIS (100% persistent migration compatibility).
+  - Created automated test suite `apps/api/test/financial-tax-rule-validation.test.ts` (12/12 passed); full backend regression: 112/112 tests passed (26 suites); Customer Flutter (107/107 passed); Provider Flutter (31/31 passed); TypeScript compilation: 0 errors across API and Admin Web.
+  - Generated master audit report `docs/PHASE_4N_FINANCIAL_AND_LAUNCH_GATE_REPORT.md`.

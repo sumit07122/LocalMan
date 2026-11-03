@@ -8,6 +8,7 @@ import {
   ConflictError,
   ValidationError,
 } from '../../common/errors/app-error.js';
+import { getPilotConfig, isPincodeInPilotZone } from '../../config/pilot.config.js';
 
 export const DISPATCH_TIMEOUT_SECONDS = 60; // 60 seconds provider review window
 export const MAX_DISPATCH_ATTEMPTS = 5; // Maximum reassignments before marking unavailable
@@ -34,6 +35,17 @@ export class DispatchService {
     // Only unassigned bookings in REQUESTED status can be dispatched
     if (booking.currentStatus !== 'REQUESTED' || booking.providerId !== null) {
       return null;
+    }
+
+    // Pilot Zone Dispatch Validation (Phase 4N: Mathura Pilot)
+    // When pilot enforcement is active, reject automated dispatch if zone is unconfirmed or address outside zone
+    if (process.env.PILOT_ENFORCEMENT_ENABLED === 'true') {
+      const pilotConfig = getPilotConfig();
+      if (!pilotConfig.isConfirmedByOwner || !isPincodeInPilotZone(booking.address?.postalCode)) {
+        throw new ConflictError(
+          'Automated provider dispatch is blocked: Mathura pilot zone is not yet confirmed by the project owner or address is outside authorized zone.'
+        );
+      }
     }
 
     // Check if there is already an active, unexpired offer for this booking

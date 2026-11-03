@@ -131,9 +131,10 @@ describe('Phase 4F.1 — Security Audit Remediation: Financial Invariants & RBAC
   // 1. Financial Invariants & Canonical 15% Platform Fee / 1% TDS
   // ===========================================================================
   describe('1. Canonical Financial Formulas & Invariants', () => {
-    it('should strictly enforce 15% commission baseline and 1% statutory TDS', () => {
+    it('should strictly enforce 15% commission baseline and statutory TDS', () => {
       assert.strictEqual(FinancialService.DEFAULT_COMMISSION_PERCENT, 15.0);
-      assert.strictEqual(FinancialService.STATUTORY_TDS_PERCENT, 1.0);
+      // Phase 4N: Section 194-O official amended statutory rate is 0.1% (w.e.f. 01.10.2024)
+      assert.strictEqual(FinancialService.STATUTORY_TDS_PERCENT, 0.1);
     });
 
     it('should maintain the financial invariant: Gross = Platform Fee + TDS + Net Earning across diverse amounts', () => {
@@ -157,11 +158,11 @@ describe('Phase 4F.1 — Security Audit Remediation: Financial Invariants & RBAC
 
         // Rates
         assert.strictEqual(result.platformCommissionRate, 15.0);
-        assert.strictEqual(result.tdsRate, 1.0);
+        assert.strictEqual(result.tdsRate, 0.1);
 
-        // Canonical 15% and 1% check
+        // Canonical 15% and statutory 0.1% check
         const expectedFee = Math.round(grossPaisa * 0.15);
-        const expectedTds = Math.round(grossPaisa * 0.01);
+        const expectedTds = Math.round(grossPaisa * 0.001);
         const expectedNet = grossPaisa - expectedFee - expectedTds;
 
         assert.strictEqual(result.platformFeePaisa, expectedFee);
