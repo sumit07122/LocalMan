@@ -4,9 +4,11 @@ Permanent engineering documentation for AI/human contributors. Keep this file cu
 
 ## 1. What LocalMan is
 On-demand home-services marketplace for India. Three-sided platform:
-1. **Customer app** (Flutter, Android/Web) — discovery, booking, payments, tracking, support.
-2. **Provider app** (Flutter, Android/Web) — onboarding, KYC, job requests, execution, earnings.
-3. **Admin web** (React + Vite + TS) — operations, bookings, provider verification, catalog, payments, analytics.
+1. **Customer website** (React/Vite/TS) — discovery, service catalog, booking requests, status tracking, support.
+2. **Worker portal** (React/Vite/TS) — onboarding, KYC status, duty activation, assigned jobs, execution, earnings.
+3. **Admin dashboard** (React/Vite/TS) — operations, bookings, manual worker assignment, provider verification, catalog, ledger, analytics.
+
+**Current Strategic Priority:** Building the unified, premium website platform. Native Android application launch and Play Store release are postponed. Flutter codebases remain preserved and intact.
 
 Goal: secure, production-ready marketplace (not a prototype).
 
@@ -86,6 +88,8 @@ CI test env uses mock providers: `STORAGE_PROVIDER=mock SMS_GATEWAY_PROVIDER=moc
    - Live SMS/OTP gateway (MSG91/Twilio DLT approved templates).
    - Live AWS S3 / Cloudflare R2 bucket with server-side KMS encryption.
    - Ingress rate limiting with Redis cluster, automated daily PostgreSQL snapshots.
+7. **P1 — Admin Web Frontend Disconnection (Discovered in Website Audit):**
+   - Empirical inspection revealed `apps/admin_web` was an in-memory static UI prototype with 0 `fetch()` calls, despite earlier claims of integration. Evolving it into a unified web application (`@localman/web`) connecting Customer, Worker, and Admin experiences directly to the Fastify API.
 
 ## 8. Status log
 - 2026-11-02: Initial audit and baseline established.
@@ -184,3 +188,12 @@ CI test env uses mock providers: `STORAGE_PROVIDER=mock SMS_GATEWAY_PROVIDER=moc
   - Evaluated ₹0 budget staging architecture: Cloudflare Pages (Admin Web), Render Free (API), and Neon Free Serverless PostgreSQL with PostGIS (100% persistent migration compatibility).
   - Created automated test suite `apps/api/test/financial-tax-rule-validation.test.ts` (12/12 passed); full backend regression: 112/112 tests passed (26 suites); Customer Flutter (107/107 passed); Provider Flutter (31/31 passed); TypeScript compilation: 0 errors across API and Admin Web.
   - Generated master audit report `docs/PHASE_4N_FINANCIAL_AND_LAUNCH_GATE_REPORT.md`.
+- 2026-11-03: Website Milestone 0 Repository Audit & Architecture Planning complete:
+  - Strategic Priority Realignment: Immediate priority is the unified website platform (Customer, Worker, Admin). Native Android application launch and Play Store release are postponed. Flutter codebases preserved intact.
+  - Empirical Audit Finding: Discovered that `apps/admin_web` was an in-memory static UI prototype with 0 `fetch()` calls to the API.
+  - Architecture Decision: Recommended unified React 18 + Vite 6 + TypeScript SPA with role-based route namespaces (`/`, `/worker/*`, `/admin/*`) evolving `apps/admin_web` without introducing Next.js or Tailwind CSS.
+  - Evaluated simplification strategy: Admin-assisted manual worker assignment, manual payment recording, dev OTP banner, static address display, preserving all financial and booking state-machine invariants.
+  - Generated foundational blueprints:
+    - `docs/WEBSITE_REPOSITORY_AUDIT.md`
+    - `docs/WEBSITE_ARCHITECTURE_PLAN.md`
+    - `docs/WEBSITE_DEVELOPMENT_ROADMAP.md`
